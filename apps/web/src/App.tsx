@@ -1,20 +1,28 @@
-import { useEffect } from "react";
-import { supabase } from "./lib/supabase";
+import { AuthenticatedHome } from "./features/auth/AuthenticatedHome";
+import { AuthForm } from "./features/auth/AuthForm";
+import { useAuth } from "./features/auth/AuthContext";
 
 function App() {
-  useEffect(() => {
-    async function testSupabase() {
-      const { data, error } = await supabase.auth.getSession();
+  const { user, loading } = useAuth();
 
-      console.log("Supabase connected");
-      console.log("Session:", data.session);
-      console.log("Error:", error);
-    }
+  if (loading) {
+    return (
+      <main className="shell">
+        <p className="eyebrow">FOCUSROOM</p>
+        <p>Opening your room…</p>
+      </main>
+    );
+  }
 
-    testSupabase();
-  }, []);
+  if (!user) {
+    return (
+      <main className="shell">
+        <AuthForm />
+      </main>
+    );
+  }
 
-  return <h1>FocusRoom V2</h1>;
+  return <AuthenticatedHome />;
 }
 
 export default App;

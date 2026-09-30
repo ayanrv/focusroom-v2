@@ -1,7 +1,20 @@
+# Dependencies
 node_modules/
+
+# Environment
 .env
 .env.*
 !.env.example
 
+# Builds and generated output
 dist/
 build/
+coverage/
+*.tsbuildinfo
+apps/api/src/generated/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

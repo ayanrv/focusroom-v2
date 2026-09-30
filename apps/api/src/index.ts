@@ -1,23 +1,10 @@
-import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { prisma } from "./lib/prisma";
-
-const app = new Hono();
-
-app.get("/health", async (c) => {
-  const profileCount = await prisma.profile.count();
-
-  return c.json({
-    status: "ok",
-    service: "focusroom-api",
-    database: "connected",
-    profiles: profileCount,
-  });
-});
+import { app } from "./app";
+import { env } from "./config/env";
 
 serve({
   fetch: app.fetch,
-  port: 3001,
+  port: env.PORT,
 });
 
-console.log("FocusRoom API running on http://localhost:3001");
+console.log(`FocusRoom API running on http://localhost:${env.PORT}`);

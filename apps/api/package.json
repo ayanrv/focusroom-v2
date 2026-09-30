@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "postinstall": "prisma skills sync || exit 0"
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
