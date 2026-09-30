@@ -1,0 +1,12 @@
+{
+  "name": "focusroom",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=@focusroom/web",
+    "dev:api": "npm run dev --workspace=@focusroom/api"
+  }
+}
