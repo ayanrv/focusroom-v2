@@ -761,3 +761,17 @@
     flex: 1;
   }
 }
+
+
+.focus-slider > span {
+  display: grid;
+  gap: 3px;
+}
+
+.focus-slider > span small {
+  color: rgba(211, 229, 241, .24);
+  font-size: .42rem;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
