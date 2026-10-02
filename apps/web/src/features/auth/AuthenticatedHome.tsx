@@ -230,6 +230,14 @@ export function AuthenticatedHome() {
     }
   };
 
+
+  const deleteProgressSession = async (id: string) => {
+    await apiFetch<{ success: boolean }>(`/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    await refreshProgress();
+  };
+
   useEffect(() => {
     void refreshProgress();
     return () => focusAudioEngine.destroy();
@@ -1198,6 +1206,7 @@ export function AuthenticatedHome() {
             loading={progressLoading}
             error={progressError}
             onRetry={() => void refreshProgress()}
+            onDeleteSession={deleteProgressSession}
           />
         ) : null}
       </section>
