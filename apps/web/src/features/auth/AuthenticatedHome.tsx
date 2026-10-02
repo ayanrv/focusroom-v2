@@ -360,10 +360,15 @@ export function AuthenticatedHome() {
 
           <div className="focus-state__actions">
             <button type="button" onClick={pauseOrResume}>
-              {running ? "Pause" : "Resume"}
+              {running ? "Stop" : "Resume"}
             </button>
-            <button type="button" onClick={() => void endAndSave()} disabled={saving}>
-              {saving ? "Saving…" : "Finish"}
+            <button
+              className="focus-state__end"
+              type="button"
+              onClick={() => void endAndSave()}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "End"}
             </button>
           </div>
 
@@ -402,24 +407,50 @@ export function AuthenticatedHome() {
         </Link>
 
         <nav className="focus-dashboard__tabs" aria-label="Workspace">
-          {([
-            ["focus", "Focus"],
-            ["space", "My current space"],
-            ["sound", "Sound"],
-            ["progress", "Progress"],
-          ] as Array<[DashboardTab, string]>).map(([value, label]) => (
+          <button
+            type="button"
+            className={tab === "focus" ? "is-active" : ""}
+            onClick={() => {
+              setCustomBuilder(false);
+              setTab("focus");
+            }}
+          >
+            Focus
+          </button>
+
+          {active ? (
             <button
-              key={value}
               type="button"
-              className={tab === value ? "is-active" : ""}
               onClick={() => {
                 setCustomBuilder(false);
-                setTab(value);
+                setInFocusView(true);
               }}
             >
-              {label}
+              My current space
             </button>
-          ))}
+          ) : null}
+
+          <button
+            type="button"
+            className={tab === "sound" ? "is-active" : ""}
+            onClick={() => {
+              setCustomBuilder(false);
+              setTab("sound");
+            }}
+          >
+            Sound
+          </button>
+
+          <button
+            type="button"
+            className={tab === "progress" ? "is-active" : ""}
+            onClick={() => {
+              setCustomBuilder(false);
+              setTab("progress");
+            }}
+          >
+            Progress
+          </button>
         </nav>
 
         <div className="focus-dashboard__account">
@@ -563,27 +594,6 @@ export function AuthenticatedHome() {
                 ) : null}
               </>
             )}
-          </section>
-        ) : null}
-
-        {tab === "space" ? (
-          <section className="dashboard-panel dashboard-panel--space">
-            <p className="focus-app__eyebrow">MY CURRENT SPACE</p>
-            <h1>{roomNames[room]}</h1>
-            <p>{roomNotes[room]}</p>
-            <div className="dashboard-room-list">
-              {rooms.map((item) => (
-                <button
-                  key={item}
-                  className={room === item ? "is-active" : ""}
-                  type="button"
-                  onClick={() => setRoom(item)}
-                >
-                  <span>{roomNames[item]}</span>
-                  <small>{roomNotes[item]}</small>
-                </button>
-              ))}
-            </div>
           </section>
         ) : null}
 
