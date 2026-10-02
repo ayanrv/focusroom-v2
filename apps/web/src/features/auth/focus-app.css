@@ -3050,3 +3050,52 @@
     width: max-content;
   }
 }
+
+
+.focus-dashboard--progress {
+  overflow: visible;
+  background: #070a0e;
+}
+
+.progress-backdrop {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(117, 177, 190, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 177, 190, .025) 1px, transparent 1px),
+    radial-gradient(circle at 70% 18%, rgba(73, 134, 148, .055), transparent 32%),
+    #070a0e;
+  background-size: 72px 72px, 72px 72px, auto, auto;
+}
+
+.progress-backdrop i:first-child {
+  position: absolute;
+  top: 16%;
+  right: 8%;
+  width: min(36vw, 520px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(118, 209, 222, .14), transparent);
+  animation: progress-backdrop-drift 10s ease-in-out infinite alternate;
+}
+
+.progress-backdrop i:last-child {
+  position: absolute;
+  bottom: 14%;
+  left: 8%;
+  width: 1px;
+  height: 34vh;
+  background: linear-gradient(transparent, rgba(118, 209, 222, .1), transparent);
+}
+
+@keyframes progress-backdrop-drift {
+  to { transform: translateX(-12vw); opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-backdrop i {
+    animation: none !important;
+  }
+}
