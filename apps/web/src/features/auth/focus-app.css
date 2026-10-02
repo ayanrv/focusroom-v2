@@ -1,4 +1,5 @@
-.focus-app {
+.focus-dashboard,
+.focus-state {
   --room-a: #00d9ff;
   --room-b: #d22dff;
   --room-c: #ff9b58;
@@ -10,691 +11,558 @@
   color: #eef6ff;
 }
 
-.focus-app.landing-alive--night-train {
+.focus-dashboard.landing-alive--night-train,
+.focus-state.landing-alive--night-train {
   --room-a: #ffad5a;
   --room-b: #3f6cff;
   --room-c: #d5d8df;
   --room-bg: #080b11;
 }
 
-.focus-app.landing-alive--orbital-lab {
+.focus-dashboard.landing-alive--orbital-lab,
+.focus-state.landing-alive--orbital-lab {
   --room-a: #8e72ff;
   --room-b: #dfe8ff;
   --room-c: #73d6ff;
   --room-bg: #05070c;
 }
 
-.focus-app.landing-alive--cozy-cafe {
+.focus-dashboard.landing-alive--cozy-cafe,
+.focus-state.landing-alive--cozy-cafe {
   --room-a: #d79b61;
   --room-b: #7c8f61;
   --room-c: #f1d3a4;
   --room-bg: #0d0a08;
 }
 
-.focus-app .ambient-world {
+.focus-dashboard .ambient-world,
+.focus-state .ambient-world {
   position: fixed;
 }
 
-.focus-app__topbar {
-  position: fixed;
-  z-index: 40;
-  top: 0;
-  right: 0;
-  left: 0;
-  min-height: 68px;
-  display: flex;
+.focus-dashboard__topbar {
+  position: relative;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 clamp(18px, 3vw, 44px);
-  border-bottom: 1px solid rgba(210, 232, 246, .08);
-  background: linear-gradient(to bottom, rgba(5, 8, 12, .88), rgba(5, 8, 12, .2), transparent);
+  gap: 28px;
+  min-height: 68px;
+  padding: 0 clamp(18px, 3vw, 42px);
+  border-bottom: 1px solid rgba(217, 236, 248, .08);
+  background: linear-gradient(to bottom, rgba(5, 8, 12, .74), rgba(5, 8, 12, .2));
 }
 
-.focus-app__brand {
+.focus-dashboard__brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: .68rem;
+  font-size: .67rem;
   font-weight: 650;
   letter-spacing: .16em;
 }
 
-.focus-app__brand .focus-mark {
+.focus-dashboard__brand .focus-mark {
   width: 26px;
   height: 26px;
 }
 
-.focus-app__identity {
+.focus-dashboard__tabs {
   display: flex;
   align-items: center;
-  gap: 18px;
-  color: rgba(214, 232, 244, .46);
-  font-size: .62rem;
+  justify-content: center;
+  gap: clamp(18px, 3vw, 38px);
 }
 
-.focus-app__identity button {
-  border: 0;
-  background: transparent;
-  color: rgba(233, 243, 250, .78);
-  cursor: pointer;
-}
-
-.focus-app__rail {
-  position: fixed;
-  z-index: 30;
-  top: 68px;
-  bottom: 0;
-  left: 0;
-  width: 92px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 1px;
-  padding-top: 26px;
-  border-right: 1px solid rgba(210, 232, 246, .08);
-  background: rgba(5, 8, 12, .18);
-}
-
-.focus-app__rail-item {
+.focus-dashboard__tabs button,
+.focus-dashboard__account button {
   position: relative;
-  display: grid;
-  gap: 5px;
-  padding: 16px 14px 16px 18px;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: rgba(211, 229, 241, .34);
-  text-align: left;
+  color: rgba(221, 236, 246, .4);
+  font-size: .62rem;
   cursor: pointer;
-  transition: color 180ms ease, transform 180ms ease;
+  transition: color 160ms ease;
 }
 
-.focus-app__rail-item::before {
+.focus-dashboard__tabs button::after {
   content: "";
   position: absolute;
-  top: 15px;
-  bottom: 15px;
+  right: 0;
+  bottom: -13px;
   left: 0;
-  width: 1px;
+  height: 1px;
   background: var(--room-a);
-  transform: scaleY(0);
+  transform: scaleX(0);
   transition: transform 180ms ease;
 }
 
-.focus-app__rail-item:hover {
-  color: rgba(238, 246, 251, .86);
-  transform: translateX(2px);
-}
-
-.focus-app__rail-item.is-active {
+.focus-dashboard__tabs button:hover,
+.focus-dashboard__tabs button.is-active,
+.focus-dashboard__account button:hover {
   color: #fff;
 }
 
-.focus-app__rail-item.is-active::before {
-  transform: scaleY(1);
+.focus-dashboard__tabs button.is-active::after {
+  transform: scaleX(1);
 }
 
-.focus-app__rail-item span {
-  font-size: .45rem;
-  letter-spacing: .12em;
+.focus-dashboard__account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
 }
 
-.focus-app__rail-item b {
-  font-size: .6rem;
-  font-weight: 500;
-  letter-spacing: .06em;
+.focus-dashboard__account span {
+  max-width: 180px;
+  overflow: hidden;
+  color: rgba(221, 236, 246, .28);
+  font-size: .55rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.focus-app__workspace {
+.focus-dashboard__body {
   position: relative;
   z-index: 10;
-  margin-left: 92px;
-  padding: 104px clamp(22px, 4vw, 58px) 48px;
-}
-
-.focus-session-panel {
+  min-height: calc(100vh - 68px);
   display: grid;
-  grid-template-columns: minmax(0, .95fr) minmax(380px, 1fr);
-  gap: clamp(48px, 7vw, 110px);
-  align-items: center;
-  min-height: 52vh;
+  place-items: center;
+  padding: 56px clamp(18px, 5vw, 72px) 64px;
 }
 
 .focus-app__eyebrow {
-  margin: 0 0 15px;
-  color: rgba(211, 230, 243, .4);
-  font-size: .54rem;
+  margin: 0 0 16px;
+  color: rgba(217, 235, 246, .36);
+  font-size: .52rem;
   font-weight: 600;
   letter-spacing: .18em;
   text-transform: uppercase;
 }
 
-.focus-session-panel__intro h1 {
-  margin: 0;
-  max-width: 9ch;
-  font-size: clamp(3.6rem, 6vw, 6.8rem);
-  font-weight: 500;
-  line-height: .91;
-  letter-spacing: -.065em;
+.focus-setup {
+  width: min(100%, 1180px);
 }
 
-.focus-intention {
-  display: block;
-  width: min(100%, 520px);
-  margin-top: 34px;
-  padding: 14px 0 13px;
-  border: 0;
-  border-bottom: 1px solid rgba(207, 232, 246, .15);
-  outline: none;
-  background: transparent;
-  color: #f3f8fb;
-  font-size: 1rem;
-  transition: border-color 180ms ease, transform 180ms ease;
-}
-
-.focus-intention::placeholder {
-  color: rgba(209, 227, 239, .28);
-}
-
-.focus-intention:focus {
-  border-color: color-mix(in srgb, var(--room-a) 54%, transparent);
-  transform: translateX(4px);
-}
-
-.duration-presets {
+.focus-setup__steps {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 42px;
 }
 
-.duration-presets button {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(208, 231, 246, .1);
-  background: rgba(7, 11, 16, .18);
-  color: rgba(215, 233, 245, .48);
-  font-size: .62rem;
-  cursor: pointer;
-  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+.focus-setup__steps span {
+  color: rgba(221, 236, 246, .22);
+  font-family: var(--mono);
+  font-size: .5rem;
 }
 
-.duration-presets button:hover:not(:disabled),
-.duration-presets button.is-active {
-  border-color: color-mix(in srgb, var(--room-a) 44%, transparent);
-  color: #fff;
-  transform: translateY(-2px);
+.focus-setup__steps span.is-active {
+  color: var(--room-a);
 }
 
-.duration-presets button:disabled {
-  cursor: default;
-  opacity: .36;
+.focus-setup__steps i {
+  width: 54px;
+  height: 1px;
+  background: rgba(221, 236, 246, .09);
 }
 
-.focus-core {
-  justify-self: center;
-  width: min(100%, 520px);
+.focus-setup__stage,
+.focus-setup__active,
+.custom-builder,
+.dashboard-panel {
+  position: relative;
+  width: min(100%, 920px);
+  margin: 0 auto;
   text-align: center;
 }
 
-.focus-core__dial {
-  --circumference: 666;
-  position: relative;
-  width: min(31vw, 380px);
-  aspect-ratio: 1;
-  margin: 0 auto;
+.focus-setup__stage h1,
+.focus-setup__active h1,
+.custom-builder h1,
+.dashboard-panel h1 {
+  margin: 0;
+  font-size: clamp(3.2rem, 7vw, 7rem);
+  font-weight: 500;
+  line-height: .92;
+  letter-spacing: -.065em;
 }
 
-.focus-core__dial svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
+.focus-setup__input {
+  display: block;
+  width: min(100%, 680px);
+  margin: 42px auto 0;
+  padding: 14px 0 16px;
+  border: 0;
+  border-bottom: 1px solid rgba(219, 237, 248, .16);
+  outline: none;
+  background: transparent;
+  color: #fff;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  text-align: center;
 }
 
-.focus-core__track,
-.focus-core__progress {
-  fill: none;
-  stroke-width: 1.2;
+.focus-setup__input::placeholder {
+  color: rgba(216, 233, 244, .23);
 }
 
-.focus-core__track {
-  stroke: rgba(213, 233, 246, .11);
+.focus-setup__input:focus {
+  border-color: color-mix(in srgb, var(--room-a) 54%, transparent);
 }
 
-.focus-core__progress {
-  stroke: color-mix(in srgb, var(--room-a) 78%, white);
-  stroke-linecap: round;
-  stroke-dasharray: 666;
-  stroke-dashoffset: calc(666 - (666 * var(--progress)));
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--room-a) 28%, transparent));
-  transition: stroke-dashoffset 250ms linear;
+.focus-setup__continue,
+.focus-setup__active button,
+.custom-builder__disabled {
+  min-height: 44px;
+  margin-top: 30px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--room-a) 40%, transparent);
+  background: color-mix(in srgb, var(--room-a) 5%, rgba(7, 11, 16, .28));
+  color: #fff;
+  font-size: .64rem;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
-.focus-core__time {
+.focus-setup__continue:hover:not(:disabled),
+.focus-setup__active button:hover {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--room-a) 10%, rgba(7, 11, 16, .4));
+}
+
+.focus-setup__continue:disabled,
+.custom-builder__disabled {
+  cursor: default;
+  opacity: .35;
+}
+
+.focus-setup__back,
+.custom-builder__back {
   position: absolute;
-  inset: 0;
+  top: -28px;
+  left: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(221, 236, 246, .42);
+  font-size: .6rem;
+  cursor: pointer;
+}
+
+.focus-setup__durations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  width: min(100%, 760px);
+  margin: 44px auto 0;
+  background: rgba(219, 237, 248, .08);
+}
+
+.focus-setup__durations button {
+  min-height: 150px;
   display: grid;
   place-content: center;
-  gap: 10px;
+  gap: 7px;
+  border: 0;
+  background: rgba(7, 11, 16, .54);
+  color: rgba(224, 238, 247, .44);
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
-.focus-core__time strong {
+.focus-setup__durations button strong {
   font-family: var(--mono);
-  font-size: clamp(3.7rem, 6.5vw, 7rem);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-weight: 400;
+  letter-spacing: -.06em;
+}
+
+.focus-setup__durations button span {
+  font-size: .58rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.focus-setup__durations button:hover,
+.focus-setup__durations button.is-active {
+  z-index: 1;
+  background: color-mix(in srgb, var(--room-a) 6%, rgba(7, 11, 16, .72));
+  color: #fff;
+  outline: 1px solid color-mix(in srgb, var(--room-a) 36%, transparent);
+  transform: translateY(-3px);
+}
+
+.focus-setup__stage--rooms {
+  width: 100%;
+  max-width: 1180px;
+}
+
+.focus-room-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 36px;
+  background: rgba(217, 236, 248, .08);
+}
+
+.focus-room-card {
+  position: relative;
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  overflow: hidden;
+  padding: 22px;
+  border: 0;
+  background: #0a0e13;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 220ms ease, background 220ms ease, filter 220ms ease;
+}
+
+.focus-room-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--poster-a) 30%, transparent), transparent 34%),
+    linear-gradient(160deg, rgba(255,255,255,.02), transparent 42%);
+  opacity: .72;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.focus-room-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.focus-room-card span {
+  margin-bottom: auto;
+  color: rgba(229, 241, 249, .42);
+  font-size: .5rem;
+  line-height: 1.5;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.focus-room-card strong {
+  font-size: clamp(1.1rem, 2vw, 1.7rem);
+  font-weight: 500;
+}
+
+.focus-room-card i {
+  margin-top: 9px;
+  color: rgba(224, 239, 248, .42);
+  font-size: .54rem;
+  font-style: normal;
+}
+
+.focus-room-card:hover {
+  z-index: 2;
+  transform: translateY(-8px);
+  filter: saturate(1.12);
+}
+
+.focus-room-card:hover::before {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.focus-room-card--rain-city { --poster-a: #00d9ff; }
+.focus-room-card--night-train { --poster-a: #ffad5a; }
+.focus-room-card--orbital-lab { --poster-a: #8e72ff; }
+.focus-room-card--cozy-cafe { --poster-a: #d79b61; }
+
+.focus-room-card--custom {
+  --poster-a: #ff5fb8;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 95, 184, .16), transparent 32%),
+    radial-gradient(circle at 80% 78%, rgba(89, 116, 255, .18), transparent 34%),
+    #0b0910;
+}
+
+.focus-room-card--custom::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -30%;
+  width: 120%;
+  height: 48%;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 50%;
+  transform: rotate(-14deg);
+  animation: custom-card-drift 8s ease-in-out infinite alternate;
+}
+
+@keyframes custom-card-drift {
+  to { transform: translate(-10%, 20%) rotate(7deg); }
+}
+
+.focus-setup__active strong {
+  display: block;
+  margin-top: 28px;
+  font-family: var(--mono);
+  font-size: clamp(4rem, 10vw, 8rem);
   font-weight: 400;
   letter-spacing: -.075em;
 }
 
-.focus-core__time span {
-  color: rgba(212, 230, 242, .4);
-  font-size: .55rem;
-  letter-spacing: .15em;
+.custom-room-backdrop {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(255, 85, 174, .14), transparent 28%),
+    radial-gradient(circle at 78% 74%, rgba(76, 110, 255, .16), transparent 32%),
+    linear-gradient(145deg, #0b0810, #090c18 56%, #09080d);
 }
 
-.focus-core__actions {
+.custom-room-backdrop__orb {
+  position: absolute;
+  width: 44vw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.07);
+  animation: custom-orbit 14s ease-in-out infinite alternate;
+}
+
+.custom-room-backdrop__orb--one {
+  top: -18%;
+  left: -8%;
+}
+
+.custom-room-backdrop__orb--two {
+  right: -14%;
+  bottom: -24%;
+  width: 54vw;
+  animation-delay: -6s;
+}
+
+.custom-room-backdrop__line {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  width: 1px;
+  height: 70%;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,.11), transparent);
+  animation: custom-line-drift 7s ease-in-out infinite alternate;
+}
+
+.custom-room-backdrop > span {
+  position: absolute;
+  right: 6vw;
+  bottom: 3vw;
+  color: rgba(255,255,255,.025);
+  font-size: clamp(7rem, 18vw, 18rem);
+  font-weight: 700;
+  letter-spacing: -.08em;
+}
+
+@keyframes custom-orbit {
+  to { transform: translate3d(6vw, 3vw, 0) rotate(10deg) scale(1.08); }
+}
+
+@keyframes custom-line-drift {
+  to { transform: translateX(12vw) rotate(4deg); }
+}
+
+.custom-builder > p:first-of-type {
+  margin: 0 0 16px;
+  color: rgba(237, 219, 255, .42);
+  font-size: .54rem;
+  letter-spacing: .18em;
+}
+
+.custom-builder__providers {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-top: 20px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 34px;
 }
 
-.focus-action {
-  min-height: 42px;
-  padding: 0 15px;
-  border: 1px solid rgba(208, 231, 245, .1);
-  background: rgba(7, 11, 16, .18);
-  color: rgba(228, 240, 248, .66);
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, background 160ms ease;
+.custom-builder__providers span {
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(242, 230, 255, .62);
+  font-size: .58rem;
 }
 
-.focus-action:hover:not(:disabled) {
-  transform: translateY(-2px);
-  color: #fff;
-  border-color: rgba(218, 237, 249, .22);
+.custom-builder__note {
+  max-width: 620px;
+  margin: 26px auto 0;
+  color: rgba(226, 216, 239, .44);
+  font-size: .78rem;
+  line-height: 1.7;
 }
 
-.focus-action--primary {
-  min-width: 126px;
-  border-color: color-mix(in srgb, var(--room-a) 46%, transparent);
-  background: color-mix(in srgb, var(--room-a) 8%, rgba(7, 11, 16, .42));
-  color: #fff;
+.dashboard-panel {
+  text-align: left;
 }
 
-.focus-action--primary span {
-  margin-right: 7px;
-  color: color-mix(in srgb, var(--room-a) 78%, white);
+.dashboard-panel > p:not(.focus-app__eyebrow) {
+  color: rgba(219, 235, 245, .46);
 }
 
-.focus-action--end {
-  color: rgba(242, 206, 206, .58);
-}
-
-.focus-action:disabled {
-  cursor: default;
-  opacity: .3;
-}
-
-.focus-app__lower {
+.dashboard-room-list {
   display: grid;
-  grid-template-columns: 1.05fr 1fr 1.25fr;
-  gap: 1px;
-  margin-top: 26px;
-  border-top: 1px solid rgba(210, 232, 246, .08);
-  border-bottom: 1px solid rgba(210, 232, 246, .08);
+  width: min(100%, 760px);
+  margin-top: 36px;
 }
 
-.room-switcher,
-.focus-sound,
-.focus-history {
-  min-height: 250px;
-  padding: 24px;
-  background: rgba(6, 9, 13, .34);
-}
-
-.room-switcher + .focus-sound,
-.focus-sound + .focus-history {
-  border-left: 1px solid rgba(210, 232, 246, .08);
-}
-
-.focus-panel-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 22px;
-}
-
-.focus-panel-heading h2 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 500;
-  letter-spacing: -.02em;
-}
-
-.focus-panel-heading > span {
-  max-width: 160px;
-  color: rgba(212, 229, 241, .32);
-  font-size: .52rem;
-  line-height: 1.5;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  text-align: right;
-}
-
-.room-switcher__list {
+.dashboard-room-list button {
   display: grid;
-  gap: 4px;
-}
-
-.room-switcher__list button {
-  position: relative;
-  display: grid;
-  grid-template-columns: 12px 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  min-height: 38px;
-  padding: 0 10px;
+  gap: 20px;
+  min-height: 62px;
+  padding: 0 4px;
   border: 0;
+  border-bottom: 1px solid rgba(219, 237, 248, .08);
   background: transparent;
-  color: rgba(214, 232, 244, .42);
+  color: rgba(223, 238, 248, .44);
   text-align: left;
   cursor: pointer;
-  transition: color 160ms ease, transform 160ms ease, background 160ms ease;
 }
 
-.room-switcher__list button:hover,
-.room-switcher__list button.is-active {
+.dashboard-room-list button:hover,
+.dashboard-room-list button.is-active {
   color: #fff;
-  transform: translateX(4px);
-  background: rgba(255, 255, 255, .022);
 }
 
-.room-switcher__list i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(216, 234, 246, .22);
+.dashboard-room-list span {
+  font-size: 1rem;
 }
 
-.room-switcher__list button.is-active i {
-  background: var(--room-a);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--room-a) 60%, transparent);
+.dashboard-room-list small {
+  color: rgba(219, 236, 247, .28);
+  font-size: .5rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
-
-.focus-slider {
-  display: grid;
-  grid-template-columns: 86px 1fr 30px;
-  gap: 12px;
-  align-items: center;
-  min-height: 48px;
-  color: rgba(216, 233, 244, .58);
-  font-size: .63rem;
-  transition: color 160ms ease, transform 160ms ease;
-}
-
-.focus-slider:hover {
-  color: #fff;
-  transform: translateX(3px);
-}
-
-.focus-slider input {
-  width: 100%;
-  accent-color: var(--room-a);
-  cursor: pointer;
-}
-
-.focus-slider b {
-  color: rgba(215, 232, 243, .35);
-  font-family: var(--mono);
-  font-size: .58rem;
-  font-weight: 500;
-  text-align: right;
-}
-
-.focus-history__list {
-  display: grid;
-}
-
-.focus-history__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  min-height: 48px;
-  border-bottom: 1px solid rgba(210, 232, 246, .06);
-}
-
-.focus-history__item > div {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.focus-history__item strong {
-  overflow: hidden;
-  font-size: .7rem;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.focus-history__item span,
-.focus-history__item > b {
-  color: rgba(209, 228, 240, .34);
-  font-size: .52rem;
-  font-weight: 500;
-  letter-spacing: .05em;
-}
-
-.focus-history__empty {
-  margin: 34px 0 0;
-  color: rgba(213, 230, 241, .32);
-  font-size: .68rem;
-  line-height: 1.6;
-}
-
-@media (max-width: 1100px) {
-  .focus-session-panel {
-    grid-template-columns: 1fr 1fr;
-    gap: 48px;
-  }
-
-  .focus-app__lower {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .focus-history {
-    grid-column: 1 / -1;
-    border-top: 1px solid rgba(210, 232, 246, .08);
-    border-left: 0 !important;
-  }
-}
-
-@media (max-width: 780px) {
-  .focus-app {
-    overflow: visible;
-  }
-
-  .focus-app__topbar {
-    min-height: 62px;
-    padding-inline: 16px;
-  }
-
-  .focus-app__identity > span {
-    display: none;
-  }
-
-  .focus-app__rail {
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    width: auto;
-    height: 58px;
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 0;
-    border-top: 1px solid rgba(210, 232, 246, .1);
-    border-right: 0;
-    background: rgba(5, 8, 12, .94);
-  }
-
-  .focus-app__rail-item {
-    flex: 1;
-    place-items: center;
-    padding: 8px 4px;
-    text-align: center;
-  }
-
-  .focus-app__rail-item::before {
-    top: 0;
-    right: 24%;
-    bottom: auto;
-    left: 24%;
-    width: auto;
-    height: 1px;
-    transform: scaleX(0);
-  }
-
-  .focus-app__rail-item.is-active::before {
-    transform: scaleX(1);
-  }
-
-  .focus-app__rail-item:hover {
-    transform: none;
-  }
-
-  .focus-app__workspace {
-    margin-left: 0;
-    padding: 88px 18px 88px;
-  }
-
-  .focus-session-panel {
-    grid-template-columns: 1fr;
-    gap: 38px;
-    min-height: auto;
-  }
-
-  .focus-session-panel__intro {
-    text-align: center;
-  }
-
-  .focus-session-panel__intro h1 {
-    max-width: none;
-    font-size: clamp(3rem, 13vw, 5rem);
-  }
-
-  .focus-intention {
-    margin-inline: auto;
-    text-align: center;
-    font-size: 16px;
-  }
-
-  .duration-presets {
-    justify-content: center;
-  }
-
-  .focus-core__dial {
-    width: min(82vw, 340px);
-  }
-
-  .focus-core__actions {
-    flex-wrap: wrap;
-  }
-
-  .focus-app__lower {
-    grid-template-columns: 1fr;
-    margin-top: 48px;
-  }
-
-  .room-switcher,
-  .focus-sound,
-  .focus-history {
-    min-height: auto;
-  }
-
-  .room-switcher + .focus-sound,
-  .focus-sound + .focus-history {
-    border-top: 1px solid rgba(210, 232, 246, .08);
-    border-left: 0;
-  }
-
-  .focus-history {
-    grid-column: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .focus-app__brand span {
-    display: none;
-  }
-
-  .focus-app__rail-item span {
-    display: none;
-  }
-
-  .focus-app__rail-item b {
-    font-size: .54rem;
-  }
-
-  .focus-core__actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .focus-action--primary {
-    grid-column: 1 / -1;
-  }
-
-  .focus-panel-heading {
-    display: grid;
-  }
-
-  .focus-panel-heading > span {
-    max-width: none;
-    text-align: left;
-  }
-
-  .focus-slider {
-    grid-template-columns: 72px 1fr 28px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .focus-core__progress,
-  .focus-intention,
-  .focus-action,
-  .focus-slider,
-  .room-switcher__list button {
-    transition: none !important;
-  }
-}
-
-
-/* Audio engine */
 
 .sound-engine-controls {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: -2px 0 8px;
+  gap: 8px;
+  margin: 34px 0 16px;
 }
 
 .sound-power,
 .sound-mute {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid rgba(211, 232, 245, .1);
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(217, 236, 248, .12);
   background: transparent;
-  color: rgba(217, 233, 244, .46);
-  font-size: .56rem;
-  letter-spacing: .06em;
+  color: rgba(221, 236, 246, .46);
+  font-size: .58rem;
   cursor: pointer;
-  transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
 }
 
 .sound-power {
@@ -707,71 +575,391 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(216, 233, 244, .28);
-  transition: background 160ms ease, box-shadow 160ms ease;
-}
-
-.sound-power:hover,
-.sound-mute:hover:not(:disabled) {
-  color: #fff;
-  border-color: rgba(220, 238, 249, .22);
-  transform: translateY(-1px);
+  background: rgba(219, 235, 246, .3);
 }
 
 .sound-power.is-on {
+  border-color: color-mix(in srgb, var(--room-a) 42%, transparent);
   color: #fff;
-  border-color: color-mix(in srgb, var(--room-a) 38%, transparent);
-  background: color-mix(in srgb, var(--room-a) 5%, transparent);
 }
 
 .sound-power.is-on i {
   background: var(--room-a);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--room-a) 64%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--room-a) 62%, transparent);
 }
 
-.sound-mute:disabled {
-  cursor: default;
-  opacity: .28;
-}
-
-.focus-slider--master {
-  margin-bottom: 2px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(210, 232, 246, .06);
-}
-
-.focus-slider--master span {
-  color: rgba(238, 246, 251, .78);
-}
-
-.focus-sound__note {
-  margin: 12px 0 0;
-  color: rgba(211, 229, 241, .25);
-  font-size: .52rem;
-  line-height: 1.5;
-}
-
-@media (max-width: 480px) {
-  .sound-engine-controls {
-    justify-content: space-between;
-  }
-
-  .sound-power,
-  .sound-mute {
-    flex: 1;
-  }
-}
-
-
-.focus-slider > span {
+.dashboard-sound-row {
   display: grid;
-  gap: 3px;
+  grid-template-columns: 150px 1fr 34px;
+  gap: 18px;
+  align-items: center;
+  min-height: 62px;
+  border-bottom: 1px solid rgba(219, 237, 248, .07);
+  color: rgba(223, 238, 248, .62);
 }
 
-.focus-slider > span small {
-  color: rgba(211, 229, 241, .24);
+.dashboard-sound-row > span {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-sound-row small {
+  color: rgba(219, 236, 247, .24);
   font-size: .42rem;
-  font-weight: 500;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.dashboard-sound-row input {
+  width: 100%;
+  accent-color: var(--room-a);
+}
+
+.dashboard-sound-row b {
+  color: rgba(219, 236, 247, .34);
+  font-family: var(--mono);
+  font-size: .56rem;
+  text-align: right;
+}
+
+.progress-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  width: min(100%, 620px);
+  margin-top: 36px;
+  background: rgba(219, 237, 248, .08);
+}
+
+.progress-summary div {
+  min-height: 140px;
+  display: grid;
+  align-content: center;
+  padding: 22px;
+  background: rgba(7, 11, 16, .5);
+}
+
+.progress-summary strong {
+  font-family: var(--mono);
+  font-size: clamp(2.8rem, 5vw, 5rem);
+  font-weight: 400;
+  letter-spacing: -.07em;
+}
+
+.progress-summary span {
+  color: rgba(220, 236, 247, .34);
+  font-size: .56rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.progress-session-list {
+  width: min(100%, 760px);
+  margin-top: 34px;
+}
+
+.progress-session-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 64px;
+  border-bottom: 1px solid rgba(219, 237, 248, .07);
+}
+
+.progress-session-list article > div {
+  display: grid;
+  gap: 4px;
+}
+
+.progress-session-list article > div:last-child {
+  justify-items: end;
+}
+
+.progress-session-list strong {
+  font-size: .78rem;
+  font-weight: 500;
+}
+
+.progress-session-list span,
+.progress-session-list small {
+  color: rgba(220, 236, 247, .3);
+  font-size: .5rem;
+}
+
+.progress-session-list b {
+  font-family: var(--mono);
+  font-size: .7rem;
+  font-weight: 500;
+}
+
+/* Minimal focus state */
+
+.focus-state {
+  display: grid;
+  place-items: center;
+}
+
+.focus-state__back {
+  position: fixed;
+  z-index: 30;
+  top: 24px;
+  left: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(227, 240, 248, .5);
+  font-size: .62rem;
+  cursor: pointer;
+}
+
+.focus-state__content {
+  position: relative;
+  z-index: 10;
+  width: min(100% - 36px, 780px);
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.focus-state__goal {
+  max-width: 720px;
+  margin: 0 0 24px;
+  color: rgba(237, 246, 251, .82);
+  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  line-height: 1.35;
+}
+
+.focus-state__timer {
+  --circumference: 666;
+  position: relative;
+  width: min(64vw, 430px);
+  aspect-ratio: 1;
+}
+
+.focus-state__timer svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.focus-state__timer circle {
+  fill: none;
+  stroke: rgba(220, 238, 249, .09);
+  stroke-width: 1.1;
+}
+
+.focus-state__timer circle.is-progress {
+  stroke: color-mix(in srgb, var(--room-a) 80%, white);
+  stroke-linecap: round;
+  stroke-dasharray: 666;
+  stroke-dashoffset: calc(666 - (666 * var(--progress)));
+  transition: stroke-dashoffset 250ms linear;
+}
+
+.focus-state__timer > div {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 9px;
+}
+
+.focus-state__timer strong {
+  font-family: var(--mono);
+  font-size: clamp(4.2rem, 10vw, 8rem);
+  font-weight: 400;
+  letter-spacing: -.08em;
+}
+
+.focus-state__timer span {
+  color: rgba(222, 237, 247, .32);
+  font-size: .52rem;
+  letter-spacing: .16em;
+}
+
+.focus-state__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.focus-state__actions button {
+  min-width: 90px;
+  min-height: 38px;
+  border: 1px solid rgba(219, 237, 248, .12);
+  background: rgba(7, 11, 16, .18);
+  color: rgba(235, 244, 250, .64);
+  font-size: .58rem;
+  cursor: pointer;
+}
+
+.focus-state__actions button:hover {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--room-a) 36%, transparent);
+}
+
+.focus-state__mixer {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  width: min(100%, 620px);
+  margin-top: 42px;
+}
+
+.focus-state__mixer label {
+  display: grid;
+  gap: 10px;
+}
+
+.focus-state__mixer span {
+  color: rgba(220, 236, 247, .38);
+  font-size: .5rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.focus-state__mixer input {
+  width: 100%;
+  accent-color: var(--room-a);
+}
+
+@media (max-width: 980px) {
+  .focus-dashboard__topbar {
+    grid-template-columns: auto 1fr;
+  }
+
+  .focus-dashboard__tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: 42px;
+    order: 3;
+  }
+
+  .focus-dashboard__account {
+    grid-column: 2;
+  }
+
+  .focus-dashboard__body {
+    min-height: calc(100vh - 110px);
+  }
+
+  .focus-room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .focus-room-card--custom {
+    grid-column: 1 / -1;
+    min-height: 190px;
+  }
+}
+
+@media (max-width: 700px) {
+  .focus-dashboard {
+    overflow: visible;
+  }
+
+  .focus-dashboard__topbar {
+    gap: 12px;
+    padding: 14px 16px 0;
+  }
+
+  .focus-dashboard__brand span,
+  .focus-dashboard__account span {
+    display: none;
+  }
+
+  .focus-dashboard__tabs {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  .focus-dashboard__tabs button {
+    min-height: 42px;
+    white-space: nowrap;
+  }
+
+  .focus-dashboard__body {
+    padding: 42px 16px 56px;
+  }
+
+  .focus-setup__steps {
+    margin-bottom: 30px;
+  }
+
+  .focus-setup__stage h1,
+  .focus-setup__active h1,
+  .custom-builder h1,
+  .dashboard-panel h1 {
+    font-size: clamp(2.8rem, 13vw, 4.8rem);
+  }
+
+  .focus-setup__back,
+  .custom-builder__back {
+    position: static;
+    display: block;
+    margin-bottom: 24px;
+  }
+
+  .focus-setup__durations {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-setup__durations button {
+    min-height: 96px;
+  }
+
+  .focus-room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-room-card,
+  .focus-room-card--custom {
+    grid-column: auto;
+    min-height: 180px;
+  }
+
+  .dashboard-sound-row {
+    grid-template-columns: 92px 1fr 30px;
+    gap: 10px;
+  }
+
+  .progress-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-state__back {
+    top: 18px;
+    left: 18px;
+  }
+
+  .focus-state__content {
+    padding-top: 56px;
+  }
+
+  .focus-state__timer {
+    width: min(88vw, 380px);
+  }
+
+  .focus-state__mixer {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    width: min(100%, 420px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-room-card--custom::after,
+  .custom-room-backdrop__orb,
+  .custom-room-backdrop__line {
+    animation: none !important;
+  }
+
+  .focus-room-card,
+  .focus-setup__durations button,
+  .focus-state__timer circle.is-progress {
+    transition: none !important;
+  }
 }
