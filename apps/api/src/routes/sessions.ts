@@ -214,7 +214,7 @@ sessionRoutes.delete("/:id", async (c) => {
   }
 
   await prisma.focusSession.delete({ where: { id } });
-  return c.body(null, 204);
+  return c.json({ success: true });
 });
 
 sessionRoutes.post("/", async (c) => {
