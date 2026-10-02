@@ -118,6 +118,7 @@ export function AuthenticatedHome() {
   const [setupStep, setSetupStep] = useState<SetupStep>("goal");
   const [inFocusView, setInFocusView] = useState(Boolean(saved?.startedAt));
   const [customBuilder, setCustomBuilder] = useState(false);
+  const [previewRoom, setPreviewRoom] = useState<Room | "custom" | null>(null);
 
   const [room, setRoom] = useState<Room>(initialRoom);
   const [intention, setIntention] = useState(saved?.intention ?? "");
@@ -328,6 +329,8 @@ export function AuthenticatedHome() {
   };
 
   const totalHours = (summary.totalSeconds / 3600).toFixed(summary.totalSeconds >= 36000 ? 0 : 1);
+  const backgroundRoom = previewRoom && previewRoom !== "custom" ? previewRoom : room;
+  const showCustomBackdrop = customBuilder || previewRoom === "custom";
 
   if (inFocusView && active) {
     return (
@@ -384,11 +387,11 @@ export function AuthenticatedHome() {
   }
 
   return (
-    <main className={`focus-dashboard landing-alive--${room}`}>
-      {customBuilder ? <CustomRoomBackdrop /> : (
+    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${showCustomBackdrop ? "focus-dashboard--custom-preview" : ""}`}>
+      {showCustomBackdrop ? <CustomRoomBackdrop /> : (
         <AtmosphereLayer
-          room={room}
-          rainIntensity={room === "rain-city" ? controlA / 100 : 0}
+          room={backgroundRoom}
+          rainIntensity={backgroundRoom === "rain-city" ? controlA / 100 : 0}
         />
       )}
 
@@ -527,6 +530,10 @@ export function AuthenticatedHome() {
                           key={item}
                           className={`focus-room-card focus-room-card--${item}`}
                           type="button"
+                          onMouseEnter={() => setPreviewRoom(item)}
+                          onMouseLeave={() => setPreviewRoom(null)}
+                          onFocus={() => setPreviewRoom(item)}
+                          onBlur={() => setPreviewRoom(null)}
                           onClick={() => void beginSession(item)}
                         >
                           <span>{roomNotes[item]}</span>
@@ -538,7 +545,14 @@ export function AuthenticatedHome() {
                       <button
                         className="focus-room-card focus-room-card--custom"
                         type="button"
-                        onClick={() => setCustomBuilder(true)}
+                        onMouseEnter={() => setPreviewRoom("custom")}
+                        onMouseLeave={() => setPreviewRoom(null)}
+                        onFocus={() => setPreviewRoom("custom")}
+                        onBlur={() => setPreviewRoom(null)}
+                        onClick={() => {
+                          setPreviewRoom(null);
+                          setCustomBuilder(true);
+                        }}
                       >
                         <span>your media / your visuals / your rules</span>
                         <strong>Custom Room</strong>
