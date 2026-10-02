@@ -1453,3 +1453,232 @@
     min-height: 50px;
   }
 }
+
+
+/* Focus session visual cleanup */
+
+.depth-plane {
+  display: none !important;
+}
+
+/* Cozy Café: keep it alive with cheap transform/opacity motion only. */
+.ambient-world--cozy-cafe .room-motion--cafe {
+  animation: cafe-ambient-shift 8s ease-in-out infinite alternate !important;
+  transform-origin: center;
+}
+
+.cafe-lamp::after {
+  animation: cafe-lamp-pulse 4.8s ease-in-out infinite alternate;
+}
+
+.cafe-lamp--two::after {
+  animation-delay: -1.7s;
+}
+
+.cafe-lamp--three::after {
+  animation-delay: -3.1s;
+}
+
+.cafe-steam {
+  animation: cafe-steam-rise 4.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.cafe-steam--two {
+  animation-delay: -2.2s;
+}
+
+.cafe-cup {
+  animation: cafe-cup-breathe 6.5s ease-in-out infinite alternate;
+}
+
+@keyframes cafe-ambient-shift {
+  from {
+    transform: translate3d(-4px, 2px, 0) scale(1);
+    opacity: .84;
+  }
+  to {
+    transform: translate3d(6px, -3px, 0) scale(1.018);
+    opacity: 1;
+  }
+}
+
+@keyframes cafe-lamp-pulse {
+  from {
+    opacity: .62;
+    transform: translateX(-50%) scale(.96);
+  }
+  to {
+    opacity: .94;
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+
+@keyframes cafe-steam-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) rotate(7deg) scaleY(.82);
+  }
+  25% {
+    opacity: .36;
+  }
+  70% {
+    opacity: .18;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(8px, -22px, 0) rotate(14deg) scaleY(1.1);
+  }
+}
+
+.cafe-steam--two {
+  animation-name: cafe-steam-rise-two;
+}
+
+@keyframes cafe-steam-rise-two {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0) rotate(-9deg) scaleY(.84);
+  }
+  30% {
+    opacity: .28;
+  }
+  72% {
+    opacity: .14;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-7px, -18px, 0) rotate(-14deg) scaleY(1.08);
+  }
+}
+
+@keyframes cafe-cup-breathe {
+  from { transform: translateY(0); }
+  to { transform: translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-world--cozy-cafe .room-motion--cafe,
+  .cafe-lamp::after,
+  .cafe-steam,
+  .cafe-cup {
+    animation: none !important;
+  }
+}
+
+
+/* Cozy Café motion v2: more visible, still lightweight. */
+.ambient-world--cozy-cafe .room-motion--cafe {
+  animation: cafe-ambient-shift-strong 6.8s ease-in-out infinite alternate !important;
+}
+
+.cafe-lamp::after {
+  animation: cafe-lamp-pulse-strong 3.8s ease-in-out infinite alternate;
+}
+
+.cafe-lamp--two::after {
+  animation-delay: -1.2s;
+}
+
+.cafe-lamp--three::after {
+  animation-delay: -2.4s;
+}
+
+.cafe-steam {
+  animation: cafe-steam-rise-strong 3.7s ease-in-out infinite;
+}
+
+.cafe-steam--two {
+  animation-name: cafe-steam-rise-two-strong;
+  animation-delay: -1.8s;
+}
+
+.cafe-cup {
+  animation: cafe-cup-breathe-strong 4.2s ease-in-out infinite alternate;
+}
+
+.cafe-table {
+  animation: cafe-table-glow 5.2s ease-in-out infinite alternate;
+}
+
+@keyframes cafe-ambient-shift-strong {
+  0% {
+    transform: translate3d(-10px, 7px, 0) scale(1);
+    opacity: .76;
+  }
+  50% {
+    transform: translate3d(5px, -4px, 0) scale(1.025);
+    opacity: .94;
+  }
+  100% {
+    transform: translate3d(14px, -9px, 0) scale(1.045);
+    opacity: 1;
+  }
+}
+
+@keyframes cafe-lamp-pulse-strong {
+  0% {
+    opacity: .5;
+    transform: translateX(-50%) scale(.9);
+    box-shadow: 0 0 18px rgba(255, 176, 88, .14);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.12);
+    box-shadow: 0 0 46px rgba(255, 176, 88, .34);
+  }
+}
+
+@keyframes cafe-steam-rise-strong {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) rotate(5deg) scaleY(.72);
+  }
+  18% {
+    opacity: .48;
+  }
+  60% {
+    opacity: .24;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(14px, -42px, 0) rotate(18deg) scaleY(1.2);
+  }
+}
+
+@keyframes cafe-steam-rise-two-strong {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) rotate(-8deg) scaleY(.76);
+  }
+  22% {
+    opacity: .38;
+  }
+  66% {
+    opacity: .18;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-12px, -34px, 0) rotate(-18deg) scaleY(1.16);
+  }
+}
+
+@keyframes cafe-cup-breathe-strong {
+  from {
+    transform: translateY(1px) rotate(-.3deg);
+  }
+  to {
+    transform: translateY(-2px) rotate(.4deg);
+  }
+}
+
+@keyframes cafe-table-glow {
+  from {
+    opacity: .5;
+    box-shadow: 0 10px 28px rgba(0,0,0,.22);
+  }
+  to {
+    opacity: .9;
+    box-shadow: 0 14px 44px rgba(214, 143, 77, .08);
+  }
+}

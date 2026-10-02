@@ -8,9 +8,29 @@ datasource db {
 }
 
 model Profile {
-  id          String   @id
-  displayName String?
-  avatarUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String         @id
+  displayName   String?
+  avatarUrl     String?
+  focusSessions FocusSession[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model FocusSession {
+  id             String   @id @default(cuid())
+  profileId      String
+  intention      String?
+  room           String
+  plannedSeconds Int
+  elapsedSeconds Int
+  ambienceA      Int      @default(70)
+  ambienceB      Int      @default(45)
+  ambienceC      Int      @default(55)
+  startedAt      DateTime
+  endedAt        DateTime
+  createdAt      DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, startedAt])
 }
