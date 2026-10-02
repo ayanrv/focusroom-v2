@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 export type ProgressSession = {
   id: string;
@@ -95,6 +95,17 @@ export function ProgressPanel({
     [data],
   );
 
+  useEffect(() => {
+    if (!selected) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelected(null);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selected]);
+
   if (loading && !data) {
     return (
       <section className="progress-v2 progress-v2--loading">
@@ -179,7 +190,7 @@ export function ProgressPanel({
             {data.weekly.map((item) => (
               <div className="progress-weekly__day" key={item.date}>
                 <div className="progress-weekly__track">
-                  <i style={{ "--height": `${Math.max(3, (item.seconds / maxWeekly) * 100)}%` } as React.CSSProperties} />
+                  <i style={{ "--height": `${Math.max(3, (item.seconds / maxWeekly) * 100)}%` } as CSSProperties} />
                 </div>
                 <strong>{item.seconds ? formatDuration(item.seconds, true) : "—"}</strong>
                 <span>{localDay(item.date)}</span>
@@ -198,12 +209,12 @@ export function ProgressPanel({
 
           <div className="progress-heatmap" aria-label="Focus activity over the last 91 days">
             {data.heatmap.map((item) => {
-              const intensity = item.seconds ? Math.max(.14, item.seconds / maxHeat) : 0;
+              const intensity = item.seconds ? Math.max(.14, Math.sqrt(item.seconds / maxHeat)) : 0;
               return (
                 <i
                   key={item.date}
                   title={`${item.date}: ${formatDuration(item.seconds)}`}
-                  style={{ "--heat": intensity } as React.CSSProperties}
+                  style={{ "--heat": intensity } as CSSProperties}
                 />
               );
             })}
@@ -236,7 +247,7 @@ export function ProgressPanel({
                   <span>{roomName(item.room)}</span>
                   <b>{formatDuration(item.seconds, true)}</b>
                 </div>
-                <i><em style={{ "--width": `${(item.seconds / maxRoom) * 100}%` } as React.CSSProperties} /></i>
+                <i><em style={{ "--width": `${(item.seconds / maxRoom) * 100}%` } as CSSProperties} /></i>
               </div>
             )) : <p>No room data yet.</p>}
           </div>
@@ -298,9 +309,9 @@ export function ProgressPanel({
             {!selected.room.startsWith("custom:") ? (
               <div className="progress-detail__mix">
                 <span>LAST MIX</span>
-                <div><i style={{ "--mix": `${selected.ambienceA}%` } as React.CSSProperties} /><b>A {selected.ambienceA}</b></div>
-                <div><i style={{ "--mix": `${selected.ambienceB}%` } as React.CSSProperties} /><b>B {selected.ambienceB}</b></div>
-                <div><i style={{ "--mix": `${selected.ambienceC}%` } as React.CSSProperties} /><b>C {selected.ambienceC}</b></div>
+                <div><i style={{ "--mix": `${selected.ambienceA}%` } as CSSProperties} /><b>A {selected.ambienceA}</b></div>
+                <div><i style={{ "--mix": `${selected.ambienceB}%` } as CSSProperties} /><b>B {selected.ambienceB}</b></div>
+                <div><i style={{ "--mix": `${selected.ambienceC}%` } as CSSProperties} /><b>C {selected.ambienceC}</b></div>
               </div>
             ) : null}
           </article>
