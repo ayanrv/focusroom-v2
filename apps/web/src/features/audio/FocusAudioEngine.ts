@@ -1,10 +1,39 @@
 import type { Room } from "../../components/AtmosphereLayer";
 
-type LayerKey = "a" | "b" | "c";
+export type LayerKey = "a" | "b" | "c";
+export type LayerSourceKind = "procedural" | "file";
+
+export type LayerMeta = {
+  label: string;
+  kind: LayerSourceKind;
+  asset?: string;
+};
+
+export const roomAudioConfig: Record<Room, Record<LayerKey, LayerMeta>> = {
+  "rain-city": {
+    a: { label: "Rain + thunder", kind: "procedural" },
+    b: { label: "Traffic", kind: "file", asset: "/audio/rain-city/traffic.mp3" },
+    c: { label: "City life", kind: "file", asset: "/audio/rain-city/city-life.mp3" },
+  },
+  "night-train": {
+    a: { label: "Rails", kind: "procedural" },
+    b: { label: "Wind", kind: "procedural" },
+    c: { label: "Lo-fi", kind: "file", asset: "/audio/night-train/lofi.mp3" },
+  },
+  "orbital-lab": {
+    a: { label: "Cosmos", kind: "file", asset: "/audio/orbital-lab/cosmos.mp3" },
+    b: { label: "Ventilation", kind: "procedural" },
+    c: { label: "Systems", kind: "procedural" },
+  },
+  "cozy-cafe": {
+    a: { label: "Crowd", kind: "file", asset: "/audio/cozy-cafe/crowd.mp3" },
+    b: { label: "Coffee bar", kind: "file", asset: "/audio/cozy-cafe/coffee-bar.mp3" },
+    c: { label: "Jazz / vinyl", kind: "file", asset: "/audio/cozy-cafe/jazz-vinyl.mp3" },
+  },
+};
 
 type LayerNodes = {
   gain: GainNode;
-  sources: AudioScheduledSourceNode[];
   stop: () => void;
 };
 
@@ -21,7 +50,7 @@ type Volumes = {
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
-function createNoiseBuffer(context: AudioContext, seconds = 2) {
+function createNoiseBuffer(context: AudioContext, seconds = 3) {
   const length = Math.max(1, Math.floor(context.sampleRate * seconds));
   const buffer = context.createBuffer(1, length, context.sampleRate);
   const data = buffer.getChannelData(0);
@@ -33,27 +62,40 @@ function createNoiseBuffer(context: AudioContext, seconds = 2) {
   return buffer;
 }
 
+function createSilentLayer(context: AudioContext, destination: AudioNode): LayerNodes {
+  const gain = context.createGain();
+  gain.gain.value = 0;
+  gain.connect(destination);
+
+  return {
+    gain,
+    stop: () => gain.disconnect(),
+  };
+}
+
 function createNoiseLayer(
   context: AudioContext,
   destination: AudioNode,
-  {
-    highpass = 0,
-    lowpass = 20000,
-    gain = 0.25,
-    playbackRate = 1,
-  }: {
+  options: {
     highpass?: number;
     lowpass?: number;
     gain?: number;
     playbackRate?: number;
-  },
+  } = {},
 ): LayerNodes {
+  const {
+    highpass = 0,
+    lowpass = 20000,
+    gain: initialGain = 0.25,
+    playbackRate = 1,
+  } = options;
+
   const output = context.createGain();
-  output.gain.value = gain;
+  output.gain.value = initialGain;
   output.connect(destination);
 
   const source = context.createBufferSource();
-  source.buffer = createNoiseBuffer(context, 2.5);
+  source.buffer = createNoiseBuffer(context);
   source.loop = true;
   source.playbackRate.value = playbackRate;
 
@@ -80,12 +122,11 @@ function createNoiseLayer(
 
   return {
     gain: output,
-    sources: [source],
     stop: () => {
       try {
         source.stop();
       } catch {
-        // Source may already be stopped.
+        // Already stopped.
       }
       output.disconnect();
     },
@@ -96,14 +137,14 @@ function createToneLayer(
   context: AudioContext,
   destination: AudioNode,
   frequencies: number[],
-  gain = 0.12,
+  gain = 0.1,
   type: OscillatorType = "sine",
 ): LayerNodes {
   const output = context.createGain();
   output.gain.value = gain;
   output.connect(destination);
 
-  const sources: AudioScheduledSourceNode[] = [];
+  const oscillators: OscillatorNode[] = [];
 
   frequencies.forEach((frequency, index) => {
     const oscillator = context.createOscillator();
@@ -111,23 +152,21 @@ function createToneLayer(
 
     oscillator.type = type;
     oscillator.frequency.value = frequency;
-    oscillator.detune.value = index % 2 === 0 ? -4 : 5;
+    oscillator.detune.value = index % 2 === 0 ? -5 : 5;
     voiceGain.gain.value = 1 / frequencies.length;
 
     oscillator.connect(voiceGain);
     voiceGain.connect(output);
     oscillator.start();
-
-    sources.push(oscillator);
+    oscillators.push(oscillator);
   });
 
   return {
     gain: output,
-    sources,
     stop: () => {
-      sources.forEach((source) => {
+      oscillators.forEach((oscillator) => {
         try {
-          source.stop();
+          oscillator.stop();
         } catch {
           // Already stopped.
         }
@@ -137,39 +176,40 @@ function createToneLayer(
   };
 }
 
-function createPulseLayer(
-  context: AudioContext,
-  destination: AudioNode,
-  frequency: number,
-  intervalSeconds: number,
-  gain = 0.1,
-): LayerNodes {
+function createRailLayer(context: AudioContext, destination: AudioNode): LayerNodes {
   const output = context.createGain();
-  output.gain.value = gain;
+  output.gain.value = 0.2;
   output.connect(destination);
 
+  const rumble = createNoiseLayer(context, output, {
+    highpass: 45,
+    lowpass: 420,
+    gain: 0.34,
+    playbackRate: 0.72,
+  });
+
   const oscillator = context.createOscillator();
-  const pulseGain = context.createGain();
-
-  oscillator.type = "sine";
-  oscillator.frequency.value = frequency;
-  pulseGain.gain.value = 0;
-
-  oscillator.connect(pulseGain);
-  pulseGain.connect(output);
+  const pulse = context.createGain();
+  oscillator.type = "triangle";
+  oscillator.frequency.value = 46;
+  pulse.gain.value = 0.07;
+  oscillator.connect(pulse);
+  pulse.connect(output);
   oscillator.start();
 
-  const now = context.currentTime;
-  for (let t = now; t < now + 180; t += intervalSeconds) {
-    pulseGain.gain.setValueAtTime(0, t);
-    pulseGain.gain.linearRampToValueAtTime(0.8, t + 0.025);
-    pulseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-  }
+  const interval = window.setInterval(() => {
+    const now = context.currentTime;
+    pulse.gain.cancelScheduledValues(now);
+    pulse.gain.setValueAtTime(0.025, now);
+    pulse.gain.linearRampToValueAtTime(0.16, now + 0.035);
+    pulse.gain.exponentialRampToValueAtTime(0.025, now + 0.22);
+  }, 540);
 
   return {
     gain: output,
-    sources: [oscillator],
     stop: () => {
+      window.clearInterval(interval);
+      rumble.stop();
       try {
         oscillator.stop();
       } catch {
@@ -180,45 +220,213 @@ function createPulseLayer(
   };
 }
 
+function createSystemsLayer(context: AudioContext, destination: AudioNode): LayerNodes {
+  const output = context.createGain();
+  output.gain.value = 0.11;
+  output.connect(destination);
+
+  const drone = createToneLayer(context, output, [55, 82.41, 110], 0.16, "sine");
+  const beep = context.createOscillator();
+  const beepGain = context.createGain();
+  beep.type = "sine";
+  beep.frequency.value = 740;
+  beepGain.gain.value = 0;
+  beep.connect(beepGain);
+  beepGain.connect(output);
+  beep.start();
+
+  const scheduleBeep = () => {
+    const now = context.currentTime;
+    beep.frequency.setValueAtTime(620 + Math.random() * 520, now);
+    beepGain.gain.cancelScheduledValues(now);
+    beepGain.gain.setValueAtTime(0.0001, now);
+    beepGain.gain.exponentialRampToValueAtTime(0.11, now + 0.015);
+    beepGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  };
+
+  scheduleBeep();
+  const interval = window.setInterval(scheduleBeep, 2400 + Math.random() * 1800);
+
+  return {
+    gain: output,
+    stop: () => {
+      window.clearInterval(interval);
+      drone.stop();
+      try {
+        beep.stop();
+      } catch {
+        // Already stopped.
+      }
+      output.disconnect();
+    },
+  };
+}
+
+function createRainThunderLayer(context: AudioContext, destination: AudioNode): LayerNodes {
+  const output = context.createGain();
+  output.gain.value = 0.23;
+  output.connect(destination);
+
+  const rain = createNoiseLayer(context, output, {
+    highpass: 1350,
+    lowpass: 10000,
+    gain: 0.72,
+    playbackRate: 1.05,
+  });
+
+  const thunderGain = context.createGain();
+  thunderGain.gain.value = 0;
+  thunderGain.connect(output);
+
+  const thunderSource = context.createBufferSource();
+  thunderSource.buffer = createNoiseBuffer(context, 4);
+  thunderSource.loop = true;
+
+  const thunderFilter = context.createBiquadFilter();
+  thunderFilter.type = "lowpass";
+  thunderFilter.frequency.value = 170;
+  thunderSource.connect(thunderFilter);
+  thunderFilter.connect(thunderGain);
+  thunderSource.start();
+
+  let timeout: number | null = null;
+  let stopped = false;
+
+  const scheduleThunder = () => {
+    if (stopped) return;
+
+    const delayMs = 45000 + Math.random() * 120000;
+    timeout = window.setTimeout(() => {
+      if (stopped) return;
+
+      const now = context.currentTime;
+      const peak = 0.12 + Math.random() * 0.16;
+      const attack = 0.18 + Math.random() * 0.18;
+      const decay = 2.8 + Math.random() * 2.4;
+
+      thunderGain.gain.cancelScheduledValues(now);
+      thunderGain.gain.setValueAtTime(0.0001, now);
+      thunderGain.gain.exponentialRampToValueAtTime(peak, now + attack);
+      thunderGain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+
+      scheduleThunder();
+    }, delayMs);
+  };
+
+  scheduleThunder();
+
+  return {
+    gain: output,
+    stop: () => {
+      stopped = true;
+      if (timeout !== null) window.clearTimeout(timeout);
+      rain.stop();
+      try {
+        thunderSource.stop();
+      } catch {
+        // Already stopped.
+      }
+      output.disconnect();
+    },
+  };
+}
+
+function createMediaLayer(
+  context: AudioContext,
+  destination: AudioNode,
+  asset: string,
+): LayerNodes {
+  const output = context.createGain();
+  output.gain.value = 0.75;
+  output.connect(destination);
+
+  const audio = new Audio(asset);
+  audio.loop = true;
+  audio.preload = "auto";
+  audio.crossOrigin = "anonymous";
+
+  let source: MediaElementAudioSourceNode | null = null;
+
+  try {
+    source = context.createMediaElementSource(audio);
+    source.connect(output);
+    void audio.play().catch(() => {
+      // Missing or not-yet-authorized assets stay silent without breaking the room.
+    });
+  } catch {
+    // If media element routing fails, keep the layer silent.
+  }
+
+  return {
+    gain: output,
+    stop: () => {
+      audio.pause();
+      audio.src = "";
+      source?.disconnect();
+      output.disconnect();
+    },
+  };
+}
+
+function createConfiguredLayer(
+  context: AudioContext,
+  destination: AudioNode,
+  room: Room,
+  key: LayerKey,
+): LayerNodes {
+  const config = roomAudioConfig[room][key];
+
+  if (config.kind === "file") {
+    return config.asset
+      ? createMediaLayer(context, destination, config.asset)
+      : createSilentLayer(context, destination);
+  }
+
+  if (room === "rain-city" && key === "a") {
+    return createRainThunderLayer(context, destination);
+  }
+
+  if (room === "night-train" && key === "a") {
+    return createRailLayer(context, destination);
+  }
+
+  if (room === "night-train" && key === "b") {
+    return createNoiseLayer(context, destination, {
+      highpass: 500,
+      lowpass: 5200,
+      gain: 0.18,
+      playbackRate: 0.64,
+    });
+  }
+
+  if (room === "orbital-lab" && key === "b") {
+    return createNoiseLayer(context, destination, {
+      highpass: 80,
+      lowpass: 720,
+      gain: 0.22,
+      playbackRate: 0.68,
+    });
+  }
+
+  if (room === "orbital-lab" && key === "c") {
+    return createSystemsLayer(context, destination);
+  }
+
+  return createSilentLayer(context, destination);
+}
+
 function createRoomGraph(context: AudioContext, room: Room): RoomGraph {
   const gain = context.createGain();
   gain.gain.value = 0;
 
-  let layers: Record<LayerKey, LayerNodes>;
-
-  switch (room) {
-    case "night-train":
-      layers = {
-        a: createPulseLayer(context, gain, 52, 0.54, 0.18),
-        b: createNoiseLayer(context, gain, { highpass: 90, lowpass: 520, gain: 0.26, playbackRate: 0.78 }),
-        c: createNoiseLayer(context, gain, { highpass: 950, lowpass: 5200, gain: 0.12, playbackRate: 0.56 }),
-      };
-      break;
-    case "orbital-lab":
-      layers = {
-        a: createNoiseLayer(context, gain, { highpass: 70, lowpass: 700, gain: 0.16, playbackRate: 0.68 }),
-        b: createToneLayer(context, gain, [110, 164.81, 220], 0.08, "sine"),
-        c: createToneLayer(context, gain, [55, 82.41], 0.11, "triangle"),
-      };
-      break;
-    case "cozy-cafe":
-      layers = {
-        a: createNoiseLayer(context, gain, { highpass: 250, lowpass: 2400, gain: 0.17, playbackRate: 0.82 }),
-        b: createPulseLayer(context, gain, 820, 3.7, 0.055),
-        c: createNoiseLayer(context, gain, { highpass: 500, lowpass: 4800, gain: 0.075, playbackRate: 0.33 }),
-      };
-      break;
-    case "rain-city":
-    default:
-      layers = {
-        a: createNoiseLayer(context, gain, { highpass: 1600, lowpass: 9200, gain: 0.24, playbackRate: 1.08 }),
-        b: createNoiseLayer(context, gain, { highpass: 80, lowpass: 780, gain: 0.19, playbackRate: 0.64 }),
-        c: createToneLayer(context, gain, [61.74, 92.5], 0.075, "sine"),
-      };
-      break;
-  }
-
-  return { gain, layers };
+  return {
+    gain,
+    layers: {
+      a: createConfiguredLayer(context, gain, room, "a"),
+      b: createConfiguredLayer(context, gain, room, "b"),
+      c: createConfiguredLayer(context, gain, room, "c"),
+    },
+  };
 }
 
 export class FocusAudioEngine {
@@ -244,6 +452,7 @@ export class FocusAudioEngine {
       this.master = this.context.createGain();
       this.master.connect(this.context.destination);
       this.applyMasterVolume(true);
+
       this.graph = createRoomGraph(this.context, this.activeRoom);
       this.graph.gain.connect(this.master);
       this.applyLayerVolumes(true);
@@ -255,10 +464,6 @@ export class FocusAudioEngine {
     }
   }
 
-  isEnabled() {
-    return this.context !== null && this.context.state !== "closed";
-  }
-
   setRoom(room: Room) {
     this.activeRoom = room;
     if (!this.context || !this.master) return;
@@ -268,7 +473,6 @@ export class FocusAudioEngine {
     next.gain.connect(this.master);
     this.graph = next;
     this.applyLayerVolumes(true);
-
     this.fadeRoomGain(next.gain, 1, 0.65);
 
     if (previous) {
@@ -299,10 +503,6 @@ export class FocusAudioEngine {
     this.applyMasterVolume();
   }
 
-  getMuted() {
-    return this.muted;
-  }
-
   private applyLayerVolumes(immediate = false) {
     if (!this.context || !this.graph) return;
     const now = this.context.currentTime;
@@ -311,11 +511,10 @@ export class FocusAudioEngine {
     (Object.keys(this.volumes) as LayerKey[]).forEach((key) => {
       const node = this.graph?.layers[key].gain;
       if (!node) return;
-      const target = this.volumes[key];
 
       node.gain.cancelScheduledValues(now);
       node.gain.setValueAtTime(node.gain.value, now);
-      node.gain.linearRampToValueAtTime(target, now + duration);
+      node.gain.linearRampToValueAtTime(this.volumes[key], now + duration);
     });
   }
 
