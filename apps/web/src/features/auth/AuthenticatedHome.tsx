@@ -60,7 +60,14 @@ type StoredSession = {
   customRoom?: CustomRoomConfig | null;
   customQueueIndex?: number;
   completionPending?: boolean;
+  clientSessionId?: string | null;
 };
+
+function makeClientSessionId() {
+  if ("randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 
 function resolveRoom(value: string | null): Room {
   if (value === "night-train" || value === "orbital-lab" || value === "cozy-cafe") {
@@ -160,6 +167,9 @@ export function AuthenticatedHome() {
     initialCompletionPending ? 0 : (saved?.remainingSeconds ?? 25 * 60),
   );
   const [startedAt, setStartedAt] = useState<string | null>(saved?.startedAt ?? null);
+  const [clientSessionId, setClientSessionId] = useState<string | null>(
+    saved?.clientSessionId ?? (saved?.startedAt ? makeClientSessionId() : null),
+  );
   const [deadline, setDeadline] = useState<number | null>(initialDeadline);
   const [completionPending, setCompletionPending] = useState(initialCompletionPending);
   const [customMinutes, setCustomMinutes] = useState(
@@ -191,6 +201,7 @@ export function AuthenticatedHome() {
   });
   const [muted, setMuted] = useState(false);
 
+  const savingRef = useRef(false);
   const [progressData, setProgressData] = useState<ProgressResponse | null>(null);
   const [progressLoading, setProgressLoading] = useState(true);
   const [progressError, setProgressError] = useState<string | null>(null);
@@ -285,6 +296,7 @@ export function AuthenticatedHome() {
       customRoom: activeCustomRoom,
       customQueueIndex,
       completionPending,
+      clientSessionId,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
@@ -301,6 +313,7 @@ export function AuthenticatedHome() {
     activeCustomRoom,
     customQueueIndex,
     completionPending,
+    clientSessionId,
   ]);
 
   useEffect(() => {
@@ -354,6 +367,7 @@ export function AuthenticatedHome() {
     setActiveCustomRoom(null);
     setCustomBuilder(false);
     const now = new Date().toISOString();
+    setClientSessionId(makeClientSessionId());
     setStartedAt(now);
     setInitialPlannedSeconds(plannedSeconds);
     setRemainingSeconds(plannedSeconds);
@@ -392,6 +406,7 @@ export function AuthenticatedHome() {
     setCustomBuilder(false);
 
     const now = new Date().toISOString();
+    setClientSessionId(makeClientSessionId());
     setStartedAt(now);
     setInitialPlannedSeconds(plannedSeconds);
     setRemainingSeconds(plannedSeconds);
@@ -415,7 +430,8 @@ export function AuthenticatedHome() {
   };
 
   const endAndSave = async (completed = false) => {
-    if (!startedAt || saving) return;
+    if (!startedAt || savingRef.current) return;
+    savingRef.current = true;
 
     if (deadline !== null) {
       setRemainingSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
@@ -433,6 +449,7 @@ export function AuthenticatedHome() {
       await apiFetch("/sessions", {
         method: "POST",
         body: JSON.stringify({
+          clientSessionId,
           intention,
           room: activeCustomRoom ? `custom:${activeCustomRoom.name}` : room,
           plannedSeconds,
@@ -448,6 +465,7 @@ export function AuthenticatedHome() {
       });
 
       setStartedAt(null);
+      setClientSessionId(null);
       setCompletionPending(false);
       setRemainingSeconds(plannedSeconds);
       setInitialPlannedSeconds(plannedSeconds);
@@ -462,6 +480,7 @@ export function AuthenticatedHome() {
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : "Could not save the session.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
