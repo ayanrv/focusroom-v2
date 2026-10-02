@@ -2020,3 +2020,161 @@
 .custom-media--spotify-api.is-compact {
   height: 352px;
 }
+
+
+/* Keep the active custom-room player mounted when leaving focus mode. */
+
+.custom-persistent-media {
+  z-index: 18;
+  overflow: hidden;
+  border-top: 1px solid var(--custom-line);
+  border-bottom: 1px solid var(--custom-line);
+  background: color-mix(in srgb, var(--custom-bg) 62%, transparent);
+}
+
+.custom-persistent-media--focus {
+  position: absolute;
+  top: 50%;
+  right: max(26px, 5vw);
+  width: min(52vw, 660px);
+  transform: translateY(-50%);
+}
+
+.custom-focus {
+  grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr);
+  pointer-events: none;
+}
+
+.custom-focus__session {
+  pointer-events: auto;
+}
+
+.custom-persistent-media--dock {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: min(380px, 34vw);
+  max-height: calc(100vh - 118px);
+  z-index: 26;
+}
+
+.custom-persistent-media--dock .custom-media--youtube {
+  min-height: 180px;
+}
+
+.custom-persistent-media--dock .custom-media--spotify,
+.custom-persistent-media--dock .custom-media--spotify-api,
+.custom-persistent-media--dock .custom-media--apple {
+  height: 190px;
+}
+
+.custom-persistent-media--dock .custom-focus__media-head {
+  min-height: 38px;
+}
+
+.custom-persistent-media--dock .custom-transport {
+  min-height: 42px;
+}
+
+.custom-sound-panel__queue {
+  width: min(100%, 620px);
+  display: grid;
+  margin-top: 28px;
+  border-top: 1px solid var(--custom-line);
+}
+
+.custom-sound-panel__queue button {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--custom-line);
+  background: transparent;
+  color: var(--custom-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.custom-sound-panel__queue button.is-active,
+.custom-sound-panel__queue button:hover {
+  color: var(--custom-text);
+}
+
+.custom-sound-panel__queue button span {
+  font-family: var(--mono);
+  font-size: .46rem;
+}
+
+.custom-sound-panel__queue button b {
+  font-size: .58rem;
+  font-weight: 500;
+}
+
+.custom-shell--paper .custom-persistent-media {
+  background: rgba(239, 232, 215, .78);
+  border-color: rgba(23, 23, 19, .14);
+}
+
+.custom-shell--paper .custom-sound-panel__queue button {
+  color: rgba(23, 23, 19, .48);
+  border-color: rgba(23, 23, 19, .12);
+}
+
+.custom-shell--paper .custom-sound-panel__queue button.is-active,
+.custom-shell--paper .custom-sound-panel__queue button:hover {
+  color: #171713;
+}
+
+@media (max-width: 900px) {
+  .focus-state--custom {
+    display: block;
+  }
+
+  .custom-focus {
+    display: block;
+    width: min(calc(100% - 32px), 700px);
+    padding: 86px 0 28px;
+  }
+
+  .custom-focus__session {
+    width: 100%;
+  }
+
+  .custom-persistent-media--focus {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: min(calc(100% - 32px), 700px);
+    margin: 0 auto 32px;
+    transform: none;
+  }
+
+  .custom-persistent-media--dock {
+    right: 16px;
+    bottom: 16px;
+    width: min(430px, calc(100% - 32px));
+  }
+}
+
+@media (max-width: 560px) {
+  .custom-persistent-media--dock {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: calc(100% - 32px);
+    margin: 16px auto 0;
+  }
+
+  .custom-persistent-media--dock .custom-media--youtube {
+    min-height: 210px;
+  }
+
+  .custom-persistent-media--dock .custom-media--spotify,
+  .custom-persistent-media--dock .custom-media--spotify-api,
+  .custom-persistent-media--dock .custom-media--apple {
+    height: 300px;
+  }
+}
