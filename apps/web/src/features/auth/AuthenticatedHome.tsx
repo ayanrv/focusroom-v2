@@ -7,6 +7,7 @@ import {
   CustomMediaEmbed,
   CustomRoomBackdrop,
   customRoomThemes,
+  mediaItemLabel,
   parseCustomMedia,
   providerLabel,
   type CustomRoomConfig,
@@ -60,10 +61,8 @@ const CUSTOM_ROOM_KEY = "focusroom-custom-room";
 
 const defaultCustomRoom: CustomRoomConfig = {
   name: "My Room",
-  provider: "youtube",
-  sourceUrl: "",
-  embedUrl: "",
   theme: "ember",
+  queue: [],
 };
 
 type StoredSession = {
@@ -78,6 +77,7 @@ type StoredSession = {
   controlB: number;
   controlC: number;
   customRoom?: CustomRoomConfig | null;
+  customQueueIndex?: number;
 };
 
 function resolveRoom(value: string | null): Room {
@@ -87,15 +87,36 @@ function resolveRoom(value: string | null): Room {
   return "rain-city";
 }
 
-function readCustomRoom() {
+function readCustomRoom(): CustomRoomConfig {
   try {
     const raw = window.localStorage.getItem(CUSTOM_ROOM_KEY);
     if (!raw) return defaultCustomRoom;
-    const parsed = JSON.parse(raw) as Partial<CustomRoomConfig>;
+
+    const parsed = JSON.parse(raw) as Partial<CustomRoomConfig> & {
+      provider?: "youtube" | "spotify" | "apple-music";
+      sourceUrl?: string;
+      embedUrl?: string;
+    };
+
+    const queue = Array.isArray(parsed.queue) ? parsed.queue : [];
+    const legacyQueue =
+      !queue.length && parsed.provider && parsed.sourceUrl && parsed.embedUrl
+        ? [{
+            id: "legacy-media",
+            provider: parsed.provider,
+            sourceUrl: parsed.sourceUrl,
+            embedUrl: parsed.embedUrl,
+            kind: "media",
+          }]
+        : queue;
+
     return {
-      ...defaultCustomRoom,
-      ...parsed,
-      name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.slice(0, 28) : defaultCustomRoom.name,
+      name:
+        typeof parsed.name === "string" && parsed.name.trim()
+          ? parsed.name.slice(0, 28)
+          : defaultCustomRoom.name,
+      theme: parsed.theme ?? defaultCustomRoom.theme,
+      queue: legacyQueue,
     };
   } catch {
     return defaultCustomRoom;
@@ -158,8 +179,12 @@ export function AuthenticatedHome() {
   const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(saved?.customRoom ?? null);
 
   const [customDraft, setCustomDraft] = useState<CustomRoomConfig>(() => saved?.customRoom ?? readCustomRoom());
-  const [customMediaInput, setCustomMediaInput] = useState(() => (saved?.customRoom ?? readCustomRoom()).sourceUrl);
+  const [customMediaInput, setCustomMediaInput] = useState("");
   const [customMediaError, setCustomMediaError] = useState<string | null>(null);
+  const [customPreviewIndex, setCustomPreviewIndex] = useState(0);
+  const [customQueueIndex, setCustomQueueIndex] = useState(saved?.customQueueIndex ?? 0);
+  const [customQueueOpen, setCustomQueueOpen] = useState(false);
+  const [activeQueueInput, setActiveQueueInput] = useState("");
 
   const [controlA, setControlA] = useState(saved?.controlA ?? 72);
   const [controlB, setControlB] = useState(saved?.controlB ?? 46);
@@ -249,6 +274,7 @@ export function AuthenticatedHome() {
       controlB,
       controlC,
       customRoom: activeCustomRoom,
+      customQueueIndex,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
@@ -262,6 +288,7 @@ export function AuthenticatedHome() {
     controlB,
     controlC,
     activeCustomRoom,
+    customQueueIndex,
   ]);
 
   useEffect(() => {
@@ -321,8 +348,8 @@ export function AuthenticatedHome() {
   };
 
   const beginCustomSession = () => {
-    if (!customDraft.embedUrl) {
-      setCustomMediaError("Add a working media link before starting the room.");
+    if (!customDraft.queue.length) {
+      setCustomMediaError("Add at least one video, track, album or playlist.");
       return;
     }
 
@@ -333,6 +360,7 @@ export function AuthenticatedHome() {
 
     focusAudioEngine.destroy();
     setSoundEnabled(false);
+    setCustomQueueIndex(Math.min(customPreviewIndex, roomConfig.queue.length - 1));
     setActiveCustomRoom(roomConfig);
     setCustomDraft(roomConfig);
     setCustomBuilder(false);
@@ -400,44 +428,101 @@ export function AuthenticatedHome() {
     }
   };
 
-  const handleCustomMedia = (value: string) => {
-    setCustomMediaInput(value);
+  const addCustomMedia = () => {
+    const result = parseCustomMedia(customMediaInput);
 
-    if (!value.trim()) {
-      setCustomMediaError(null);
-      setCustomDraft((current) => ({
-        ...current,
-        sourceUrl: "",
-        embedUrl: "",
-      }));
+    if ("error" in result) {
+      setCustomMediaError(result.error);
       return;
     }
 
-    const result = parseCustomMedia(value);
-    if ("error" in result) {
-      setCustomMediaError(result.error);
+    if (customDraft.queue.some((item) => item.sourceUrl === result.item.sourceUrl)) {
+      setCustomMediaError("That item is already in this room.");
       return;
     }
 
     setCustomMediaError(null);
     setCustomDraft((current) => ({
       ...current,
-      provider: result.provider,
-      sourceUrl: result.sourceUrl,
-      embedUrl: result.embedUrl,
+      queue: [...current.queue, result.item],
     }));
+    setCustomPreviewIndex(customDraft.queue.length);
+    setCustomMediaInput("");
   };
+
+  const removeCustomMedia = (index: number) => {
+    setCustomDraft((current) => ({
+      ...current,
+      queue: current.queue.filter((_, itemIndex) => itemIndex !== index),
+    }));
+    setCustomPreviewIndex((current) => Math.max(0, Math.min(current, customDraft.queue.length - 2)));
+  };
+
+  const moveCustomMedia = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= customDraft.queue.length) return;
+
+    setCustomDraft((current) => {
+      const queue = [...current.queue];
+      [queue[index], queue[target]] = [queue[target], queue[index]];
+      return { ...current, queue };
+    });
+
+    setCustomPreviewIndex((current) => {
+      if (current === index) return target;
+      if (current === target) return index;
+      return current;
+    });
+  };
+
+  const addActiveQueueItem = () => {
+    if (!activeCustomRoom) return;
+    const result = parseCustomMedia(activeQueueInput);
+
+    if ("error" in result) {
+      setCustomMediaError(result.error);
+      return;
+    }
+
+    if (activeCustomRoom.queue.some((item) => item.sourceUrl === result.item.sourceUrl)) {
+      setCustomMediaError("That item is already in the queue.");
+      return;
+    }
+
+    const updated = {
+      ...activeCustomRoom,
+      queue: [...activeCustomRoom.queue, result.item],
+    };
+
+    setActiveCustomRoom(updated);
+    setCustomDraft(updated);
+    setCustomMediaError(null);
+    setActiveQueueInput("");
+  };
+
+  const goToCustomQueueItem = (nextIndex: number) => {
+    if (!activeCustomRoom?.queue.length) return;
+    const length = activeCustomRoom.queue.length;
+    setCustomQueueIndex(((nextIndex % length) + length) % length);
+  };
+
+  const nextCustomMedia = () => goToCustomQueueItem(customQueueIndex + 1);
+  const previousCustomMedia = () => goToCustomQueueItem(customQueueIndex - 1);
 
   const totalHours = (summary.totalSeconds / 3600).toFixed(summary.totalSeconds >= 36000 ? 0 : 1);
   const backgroundRoom = previewRoom && previewRoom !== "custom" ? previewRoom : room;
   const showCustomBackdrop = customBuilder || previewRoom === "custom" || Boolean(activeCustomRoom);
   const customTheme = activeCustomRoom?.theme ?? customDraft.theme;
+  const customPreviewItem = customDraft.queue[customPreviewIndex] ?? customDraft.queue[0] ?? null;
+  const currentCustomItem = activeCustomRoom
+    ? activeCustomRoom.queue[Math.min(customQueueIndex, Math.max(0, activeCustomRoom.queue.length - 1))] ?? null
+    : null;
 
   if (inFocusView && active) {
     if (activeCustomRoom) {
       return (
         <main className={`focus-state focus-state--custom custom-shell--${activeCustomRoom.theme}`}>
-          <CustomRoomBackdrop theme={activeCustomRoom.theme} />
+          <CustomRoomBackdrop theme={activeCustomRoom.theme} roomName={activeCustomRoom.name} />
 
           <button className="focus-state__back" type="button" onClick={() => setInFocusView(false)}>
             ← Back
@@ -473,10 +558,63 @@ export function AuthenticatedHome() {
 
             <div className="custom-focus__media">
               <div className="custom-focus__media-head">
-                <span>{providerLabel(activeCustomRoom.provider)}</span>
-                <small>media stays under your control</small>
+                <span>{currentCustomItem ? mediaItemLabel(currentCustomItem) : "Queue"}</span>
+                <small>{activeCustomRoom.queue.length} item{activeCustomRoom.queue.length === 1 ? "" : "s"}</small>
               </div>
-              <CustomMediaEmbed config={activeCustomRoom} />
+
+              {currentCustomItem ? (
+                <CustomMediaEmbed
+                  key={currentCustomItem.id}
+                  item={currentCustomItem}
+                  roomName={activeCustomRoom.name}
+                  onEnded={activeCustomRoom.queue.length > 1 ? nextCustomMedia : undefined}
+                />
+              ) : null}
+
+              <div className="custom-transport">
+                <button type="button" onClick={previousCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Previous media">
+                  ←
+                </button>
+                <span>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</span>
+                <button type="button" onClick={nextCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Next media">
+                  →
+                </button>
+                <button className="custom-transport__queue" type="button" onClick={() => setCustomQueueOpen((value) => !value)}>
+                  Queue
+                </button>
+              </div>
+
+              {customQueueOpen ? (
+                <div className="custom-focus-queue">
+                  <div className="custom-focus-queue__list">
+                    {activeCustomRoom.queue.map((item, index) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={index === customQueueIndex ? "is-active" : ""}
+                        onClick={() => setCustomQueueIndex(index)}
+                      >
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <b>{mediaItemLabel(item)}</b>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="custom-focus-queue__add">
+                    <input
+                      type="url"
+                      value={activeQueueInput}
+                      onChange={(event) => setActiveQueueInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && activeQueueInput.trim()) addActiveQueueItem();
+                      }}
+                      placeholder="Add another media link"
+                    />
+                    <button type="button" onClick={addActiveQueueItem} disabled={!activeQueueInput.trim()}>
+                      Add
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </section>
         </main>
@@ -539,7 +677,10 @@ export function AuthenticatedHome() {
   return (
     <main className={`focus-dashboard landing-alive--${backgroundRoom} ${showCustomBackdrop ? `focus-dashboard--custom-preview custom-shell--${customTheme}` : ""}`}>
       {showCustomBackdrop ? (
-        <CustomRoomBackdrop theme={customTheme} />
+        <CustomRoomBackdrop
+          theme={customTheme}
+          roomName={activeCustomRoom?.name ?? customDraft.name.trim() || "My Room"}
+        />
       ) : (
         <AtmosphereLayer
           room={backgroundRoom}
@@ -629,7 +770,7 @@ export function AuthenticatedHome() {
                   <p className="custom-builder__kicker">CUSTOM ROOM</p>
                   <h1>Build the room<br />around your media.</h1>
                   <p className="custom-builder__intro">
-                    Paste one link. FocusRoom keeps the player visible and builds a separate visual space around it.
+                    Build a queue from YouTube, Spotify and Apple Music. Playlists and albums continue inside their own player; individual sources can be moved through with FocusRoom's queue controls.
                   </p>
                 </div>
 
@@ -646,22 +787,57 @@ export function AuthenticatedHome() {
                       />
                     </label>
 
-                    <label className="custom-field">
-                      <span>Media link</span>
-                      <textarea
-                        rows={3}
-                        value={customMediaInput}
-                        onChange={(event) => handleCustomMedia(event.target.value)}
-                        placeholder="Paste a YouTube, Spotify or Apple Music link"
-                      />
-                      {customMediaError ? <small className="custom-field__error">{customMediaError}</small> : (
-                        <small>
-                          {customDraft.embedUrl
-                            ? `${providerLabel(customDraft.provider)} ready`
-                            : "Video, playlist, album or track"}
-                        </small>
+                    <div className="custom-field custom-field--queue-add">
+                      <span>Add media</span>
+                      <div>
+                        <input
+                          type="url"
+                          value={customMediaInput}
+                          onChange={(event) => {
+                            setCustomMediaInput(event.target.value);
+                            if (customMediaError) setCustomMediaError(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && customMediaInput.trim()) addCustomMedia();
+                          }}
+                          placeholder="YouTube, Spotify or Apple Music link"
+                        />
+                        <button type="button" onClick={addCustomMedia} disabled={!customMediaInput.trim()}>
+                          Add
+                        </button>
+                      </div>
+                      {customMediaError ? (
+                        <small className="custom-field__error">{customMediaError}</small>
+                      ) : (
+                        <small>Mix providers, add playlists, albums, videos or individual tracks.</small>
                       )}
-                    </label>
+                    </div>
+
+                    <div className="custom-queue-editor">
+                      <div className="custom-queue-editor__head">
+                        <span>QUEUE</span>
+                        <b>{customDraft.queue.length}</b>
+                      </div>
+                      {customDraft.queue.length ? (
+                        <div className="custom-queue-editor__list">
+                          {customDraft.queue.map((item, index) => (
+                            <div className={index === customPreviewIndex ? "is-active" : ""} key={item.id}>
+                              <button type="button" onClick={() => setCustomPreviewIndex(index)}>
+                                <span>{String(index + 1).padStart(2, "0")}</span>
+                                <b>{mediaItemLabel(item)}</b>
+                              </button>
+                              <div>
+                                <button type="button" onClick={() => moveCustomMedia(index, -1)} disabled={index === 0} aria-label="Move up">↑</button>
+                                <button type="button" onClick={() => moveCustomMedia(index, 1)} disabled={index === customDraft.queue.length - 1} aria-label="Move down">↓</button>
+                                <button type="button" onClick={() => removeCustomMedia(index)} aria-label="Remove">×</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>Your queue is empty.</p>
+                      )}
+                    </div>
 
                     <div className="custom-theme-picker">
                       <span>Room color</span>
@@ -684,13 +860,13 @@ export function AuthenticatedHome() {
 
                     <div className="custom-builder__meta">
                       <span>Saved automatically on this device</span>
-                      <span>{customDraft.embedUrl ? providerLabel(customDraft.provider) : "No media yet"}</span>
+                      <span>{customDraft.queue.length ? `${customDraft.queue.length} queued` : "No media yet"}</span>
                     </div>
 
                     <button
                       className="custom-builder__start"
                       type="button"
-                      disabled={!customDraft.embedUrl}
+                      disabled={!customDraft.queue.length}
                       onClick={beginCustomSession}
                     >
                       Start in {customDraft.name.trim() || "My Room"} →
@@ -702,8 +878,13 @@ export function AuthenticatedHome() {
                       <span>LIVE PREVIEW</span>
                       <b>{customDraft.name.trim() || "My Room"}</b>
                     </div>
-                    {customDraft.embedUrl ? (
-                      <CustomMediaEmbed config={customDraft} compact />
+                    {customPreviewItem ? (
+                      <CustomMediaEmbed
+                        key={customPreviewItem.id}
+                        item={customPreviewItem}
+                        roomName={customDraft.name.trim() || "My Room"}
+                        compact
+                      />
                     ) : (
                       <div className="custom-media-placeholder">
                         <FocusMark />
@@ -828,10 +1009,17 @@ export function AuthenticatedHome() {
             <section className="dashboard-panel dashboard-panel--sound custom-sound-panel">
               <p className="focus-app__eyebrow">SOUND</p>
               <h1>{activeCustomRoom.name}</h1>
-              <p>Playback is controlled by the embedded {providerLabel(activeCustomRoom.provider)} player.</p>
-              <div className="custom-sound-panel__player">
-                <CustomMediaEmbed config={activeCustomRoom} compact />
-              </div>
+              <p>Your room has {activeCustomRoom.queue.length} queued source{activeCustomRoom.queue.length === 1 ? "" : "s"}.</p>
+              {currentCustomItem ? (
+                <div className="custom-sound-panel__player">
+                  <CustomMediaEmbed
+                    key={currentCustomItem.id}
+                    item={currentCustomItem}
+                    roomName={activeCustomRoom.name}
+                    compact
+                  />
+                </div>
+              ) : null}
             </section>
           ) : (
             <section className="dashboard-panel dashboard-panel--sound">
