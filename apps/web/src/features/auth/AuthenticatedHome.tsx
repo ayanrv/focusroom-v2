@@ -149,6 +149,10 @@ export function AuthenticatedHome() {
 
   useEffect(() => {
     void refreshHistory();
+
+    return () => {
+      focusAudioEngine.destroy();
+    };
   }, []);
 
   useEffect(() => {
@@ -218,7 +222,6 @@ export function AuthenticatedHome() {
   const enableSound = async () => {
     try {
       await focusAudioEngine.enable();
-      focusAudioEngine.setRoom(room);
       focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
       focusAudioEngine.setMasterVolume(masterVolume);
       focusAudioEngine.setMuted(muted);
