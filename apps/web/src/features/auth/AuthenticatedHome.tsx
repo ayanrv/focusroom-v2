@@ -86,37 +86,42 @@ function resolveRoom(value: string | null): Room {
   return "rain-city";
 }
 
+function normalizeCustomRoom(value: unknown): CustomRoomConfig {
+  if (!value || typeof value !== "object") return defaultCustomRoom;
+
+  const parsed = value as Partial<CustomRoomConfig> & {
+    provider?: "youtube" | "spotify" | "apple-music";
+    sourceUrl?: string;
+    embedUrl?: string;
+  };
+
+  const queue = Array.isArray(parsed.queue) ? parsed.queue : [];
+  const legacyQueue =
+    !queue.length && parsed.provider && parsed.sourceUrl && parsed.embedUrl
+      ? [{
+          id: "legacy-media",
+          provider: parsed.provider,
+          sourceUrl: parsed.sourceUrl,
+          embedUrl: parsed.embedUrl,
+          kind: "media",
+        }]
+      : queue;
+
+  return {
+    name:
+      typeof parsed.name === "string" && parsed.name.trim()
+        ? parsed.name.slice(0, 28)
+        : defaultCustomRoom.name,
+    theme: parsed.theme ?? defaultCustomRoom.theme,
+    queue: legacyQueue,
+  };
+}
+
 function readCustomRoom(): CustomRoomConfig {
   try {
     const raw = window.localStorage.getItem(CUSTOM_ROOM_KEY);
     if (!raw) return defaultCustomRoom;
-
-    const parsed = JSON.parse(raw) as Partial<CustomRoomConfig> & {
-      provider?: "youtube" | "spotify" | "apple-music";
-      sourceUrl?: string;
-      embedUrl?: string;
-    };
-
-    const queue = Array.isArray(parsed.queue) ? parsed.queue : [];
-    const legacyQueue =
-      !queue.length && parsed.provider && parsed.sourceUrl && parsed.embedUrl
-        ? [{
-            id: "legacy-media",
-            provider: parsed.provider,
-            sourceUrl: parsed.sourceUrl,
-            embedUrl: parsed.embedUrl,
-            kind: "media",
-          }]
-        : queue;
-
-    return {
-      name:
-        typeof parsed.name === "string" && parsed.name.trim()
-          ? parsed.name.slice(0, 28)
-          : defaultCustomRoom.name,
-      theme: parsed.theme ?? defaultCustomRoom.theme,
-      queue: legacyQueue,
-    };
+    return normalizeCustomRoom(JSON.parse(raw));
   } catch {
     return defaultCustomRoom;
   }
@@ -158,6 +163,7 @@ export function AuthenticatedHome() {
   }
 
   const saved = savedRef.current;
+  const savedCustomRoom = saved?.customRoom ? normalizeCustomRoom(saved.customRoom) : null;
   const initialRoom = saved?.room ?? resolveRoom(window.localStorage.getItem("focusroom-room"));
   const initialDeadline =
     saved?.deadline ??
@@ -175,9 +181,9 @@ export function AuthenticatedHome() {
   const [remainingSeconds, setRemainingSeconds] = useState(saved?.remainingSeconds ?? 25 * 60);
   const [startedAt, setStartedAt] = useState<string | null>(saved?.startedAt ?? null);
   const [deadline, setDeadline] = useState<number | null>(initialDeadline);
-  const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(saved?.customRoom ?? null);
+  const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(savedCustomRoom);
 
-  const [customDraft, setCustomDraft] = useState<CustomRoomConfig>(() => saved?.customRoom ?? readCustomRoom());
+  const [customDraft, setCustomDraft] = useState<CustomRoomConfig>(() => savedCustomRoom ?? readCustomRoom());
   const [customMediaInput, setCustomMediaInput] = useState("");
   const [customMediaError, setCustomMediaError] = useState<string | null>(null);
   const [customPreviewIndex, setCustomPreviewIndex] = useState(0);
