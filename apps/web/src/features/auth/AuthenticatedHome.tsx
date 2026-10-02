@@ -117,21 +117,6 @@ function formatClock(seconds: number) {
   return `${minutes}:${secs}`;
 }
 
-function formatDuration(seconds: number) {
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-}
-
-function displayRoom(value: string) {
-  if (value.startsWith("custom:")) {
-    return value.slice("custom:".length) || "Custom Room";
-  }
-  return roomNames[resolveRoom(value)];
-}
-
 export function AuthenticatedHome() {
   const { user, signOut } = useAuth();
   const savedRef = useRef<StoredSession | null>(null);
@@ -175,7 +160,7 @@ export function AuthenticatedHome() {
   const [deadline, setDeadline] = useState<number | null>(initialDeadline);
   const [completionPending, setCompletionPending] = useState(initialCompletionPending);
   const [customMinutes, setCustomMinutes] = useState(
-    Math.max(1, Math.round((saved?.plannedSeconds ?? 25 * 60) / 60)),
+    String(Math.max(1, Math.round((saved?.plannedSeconds ?? 25 * 60) / 60))),
   );
   const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(savedCustomRoom);
 
@@ -206,7 +191,7 @@ export function AuthenticatedHome() {
   const [progressData, setProgressData] = useState<ProgressResponse | null>(null);
   const [progressLoading, setProgressLoading] = useState(true);
   const [progressError, setProgressError] = useState<string | null>(null);
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [, setWorkspaceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const running = deadline !== null;
@@ -336,14 +321,16 @@ export function AuthenticatedHome() {
     if (active) return;
     const safeMinutes = Math.max(1, Math.min(720, Math.round(minutes)));
     const seconds = safeMinutes * 60;
-    setCustomMinutes(safeMinutes);
+    setCustomMinutes(String(safeMinutes));
     setPlannedSeconds(seconds);
     setInitialPlannedSeconds(seconds);
     setRemainingSeconds(seconds);
   };
 
   const applyCustomDuration = () => {
-    chooseDuration(customMinutes);
+    const minutes = Number(customMinutes);
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 720) return;
+    chooseDuration(minutes);
   };
 
   const beginSession = async (selectedRoom: Room) => {
@@ -637,30 +624,42 @@ export function AuthenticatedHome() {
 
           <section className="custom-focus">
             <div className="custom-focus__session">
-              <div className="custom-focus__heading">
-                <span>{activeCustomRoom.name}</span>
-                <p>{intention || "Focus session"}</p>
-              </div>
+              {completionPending ? (
+                <SessionCompletion
+                  goal={intention}
+                  focusedSeconds={plannedSeconds}
+                  saving={saving}
+                  onSave={() => void endAndSave(true)}
+                  onExtend={extendSession}
+                />
+              ) : (
+                <>
+                  <div className="custom-focus__heading">
+                    <span>{activeCustomRoom.name}</span>
+                    <p>{intention || "Focus session"}</p>
+                  </div>
 
-              <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as React.CSSProperties}>
-                <svg viewBox="0 0 240 240" aria-hidden="true">
-                  <circle cx="120" cy="120" r="106" />
-                  <circle className="is-progress" cx="120" cy="120" r="106" />
-                </svg>
-                <div>
-                  <strong>{formatClock(remainingSeconds)}</strong>
-                  <span>{running ? "FOCUSING" : "PAUSED"}</span>
-                </div>
-              </div>
+                  <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as React.CSSProperties}>
+                    <svg viewBox="0 0 240 240" aria-hidden="true">
+                      <circle cx="120" cy="120" r="106" />
+                      <circle className="is-progress" cx="120" cy="120" r="106" />
+                    </svg>
+                    <div>
+                      <strong>{formatClock(remainingSeconds)}</strong>
+                      <span>{running ? "FOCUSING" : "PAUSED"}</span>
+                    </div>
+                  </div>
 
-              <div className="focus-state__actions">
-                <button type="button" onClick={pauseOrResume}>
-                  {running ? "Stop" : "Resume"}
-                </button>
-                <button className="focus-state__end" type="button" onClick={() => void endAndSave()} disabled={saving}>
-                  {saving ? "Saving…" : "End"}
-                </button>
-              </div>
+                  <div className="focus-state__actions">
+                    <button type="button" onClick={pauseOrResume}>
+                      {running ? "Stop" : "Resume"}
+                    </button>
+                    <button className="focus-state__end" type="button" onClick={() => void endAndSave(false)} disabled={saving}>
+                      {saving ? "Saving…" : "End"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
 
@@ -681,42 +680,54 @@ export function AuthenticatedHome() {
         </button>
 
         <section className="focus-state__content">
-          <p className="focus-state__goal">{intention || "Focus session"}</p>
+          {completionPending ? (
+            <SessionCompletion
+              goal={intention}
+              focusedSeconds={plannedSeconds}
+              saving={saving}
+              onSave={() => void endAndSave(true)}
+              onExtend={extendSession}
+            />
+          ) : (
+            <>
+              <p className="focus-state__goal">{intention || "Focus session"}</p>
 
-          <div className="focus-state__timer" style={{ "--progress": progress } as React.CSSProperties}>
-            <svg viewBox="0 0 240 240" aria-hidden="true">
-              <circle cx="120" cy="120" r="106" />
-              <circle className="is-progress" cx="120" cy="120" r="106" />
-            </svg>
-            <div>
-              <strong>{formatClock(remainingSeconds)}</strong>
-              <span>{running ? "FOCUSING" : "PAUSED"}</span>
-            </div>
-          </div>
+              <div className="focus-state__timer" style={{ "--progress": progress } as React.CSSProperties}>
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                  <circle cx="120" cy="120" r="106" />
+                  <circle className="is-progress" cx="120" cy="120" r="106" />
+                </svg>
+                <div>
+                  <strong>{formatClock(remainingSeconds)}</strong>
+                  <span>{running ? "FOCUSING" : "PAUSED"}</span>
+                </div>
+              </div>
 
-          <div className="focus-state__actions">
-            <button type="button" onClick={pauseOrResume}>
-              {running ? "Stop" : "Resume"}
-            </button>
-            <button className="focus-state__end" type="button" onClick={() => void endAndSave()} disabled={saving}>
-              {saving ? "Saving…" : "End"}
-            </button>
-          </div>
+              <div className="focus-state__actions">
+                <button type="button" onClick={pauseOrResume}>
+                  {running ? "Stop" : "Resume"}
+                </button>
+                <button className="focus-state__end" type="button" onClick={() => void endAndSave(false)} disabled={saving}>
+                  {saving ? "Saving…" : "End"}
+                </button>
+              </div>
 
-          <div className="focus-state__mixer">
-            {controls.map((control) => (
-              <label key={control.key}>
-                <span>{control.label}</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={control.value}
-                  onChange={(event) => control.setter(Number(event.target.value))}
-                />
-              </label>
-            ))}
-          </div>
+              <div className="focus-state__mixer">
+                {controls.map((control) => (
+                  <label key={control.key}>
+                    <span>{control.label}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={control.value}
+                      onChange={(event) => control.setter(Number(event.target.value))}
+                    />
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       </main>
     );
@@ -1019,8 +1030,42 @@ export function AuthenticatedHome() {
                         </button>
                       ))}
                     </div>
+
+                    <div className="focus-custom-duration">
+                      <span>OR SET YOUR OWN</span>
+                      <div>
+                        <label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="720"
+                            inputMode="numeric"
+                            value={customMinutes}
+                            onChange={(event) => setCustomMinutes(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") applyCustomDuration();
+                            }}
+                            aria-label="Custom focus duration in minutes"
+                          />
+                          <small>minutes</small>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={applyCustomDuration}
+                          disabled={
+                            !Number.isFinite(Number(customMinutes)) ||
+                            Number(customMinutes) < 1 ||
+                            Number(customMinutes) > 720
+                          }
+                        >
+                          Use time
+                        </button>
+                      </div>
+                      <small>From 1 minute to 12 hours.</small>
+                    </div>
+
                     <button className="focus-setup__continue" type="button" onClick={() => setSetupStep("room")}>
-                      Choose a space
+                      Choose a space · {formatClock(plannedSeconds).replace(":00", "")}
                     </button>
                   </div>
                 ) : null}
@@ -1136,32 +1181,12 @@ export function AuthenticatedHome() {
         ) : null}
 
         {tab === "progress" ? (
-          <section className="dashboard-panel dashboard-panel--progress">
-            <p className="focus-app__eyebrow">PROGRESS</p>
-            <h1>Your focus history.</h1>
-
-            <div className="progress-summary">
-              <div><strong>{summary.totalSessions}</strong><span>sessions</span></div>
-              <div><strong>{totalHours}</strong><span>hours focused</span></div>
-            </div>
-
-            <div className="progress-session-list">
-              {history.map((session) => (
-                <article key={session.id}>
-                  <div>
-                    <strong>{session.intention || "Untitled focus session"}</strong>
-                    <span>{displayRoom(session.room)}</span>
-                  </div>
-                  <div>
-                    <b>{formatDuration(session.elapsedSeconds)}</b>
-                    <small>{new Date(session.startedAt).toLocaleDateString()}</small>
-                  </div>
-                </article>
-              ))}
-              {!history.length && !historyError ? <p>No completed sessions yet.</p> : null}
-              {historyError ? <p>{historyError}</p> : null}
-            </div>
-          </section>
+          <ProgressPanel
+            data={progressData}
+            loading={progressLoading}
+            error={progressError}
+            onRetry={() => void refreshProgress()}
+          />
         ) : null}
       </section>
     </main>
