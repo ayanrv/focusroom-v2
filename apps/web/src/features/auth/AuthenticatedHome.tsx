@@ -803,7 +803,10 @@ export function AuthenticatedHome() {
       )}
 
       {activeCustomRoom && currentCustomItem ? (
-        <div key="custom-media-session" className="custom-persistent-media custom-persistent-media--dock">
+        <div
+          key="custom-media-session"
+          className={`custom-persistent-media custom-persistent-media--dock custom-shell--${activeCustomRoom.theme}`}
+        >
           <div className="custom-focus__media-head">
             <span>{mediaItemLabel(currentCustomItem)}</span>
             <small>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</small>
