@@ -174,7 +174,7 @@ export function ProgressPanel({
           <strong>{formatDuration(summary.averageSeconds, true)}</strong>
         </article>
         <article>
-          <span>Completion</span>
+          <span>Timer completion</span>
           <strong>{summary.completionRate}%</strong>
         </article>
         <article>
@@ -276,7 +276,14 @@ export function ProgressPanel({
 
         <div className="progress-session-table">
           {data.recentSessions.map((session) => (
-            <button type="button" key={session.id} onClick={() => setSelected(session)}>
+            <button
+              type="button"
+              key={session.id}
+              onClick={() => {
+                setDeleteError(null);
+                setSelected(session);
+              }}
+            >
               <span className="progress-session-table__status" data-completed={sessionCompleted(session)} />
               <span className="progress-session-table__goal">
                 <strong>{session.intention || "Untitled focus session"}</strong>
