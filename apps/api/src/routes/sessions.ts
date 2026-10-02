@@ -220,6 +220,7 @@ sessionRoutes.delete("/:id", async (c) => {
 sessionRoutes.post("/", async (c) => {
   const user = c.get("user");
   const body = await c.req.json<{
+    clientSessionId?: string | null;
     intention?: string | null;
     room?: string;
     plannedSeconds?: number;
@@ -233,6 +234,10 @@ sessionRoutes.post("/", async (c) => {
     endedAt?: string;
   }>();
 
+  const clientSessionId =
+    typeof body.clientSessionId === "string" && body.clientSessionId.trim()
+      ? body.clientSessionId.trim().slice(0, 100)
+      : null;
   const room = typeof body.room === "string" ? body.room : "rain-city";
   const plannedSeconds = Math.round(Number(body.plannedSeconds));
   const initialPlannedSeconds = Math.round(
@@ -261,6 +266,20 @@ sessionRoutes.post("/", async (c) => {
     return c.json({ error: "Invalid focus session payload." }, 400);
   }
 
+  if (clientSessionId) {
+    const existing = await prisma.focusSession.findUnique({
+      where: { clientSessionId },
+    });
+
+    if (existing) {
+      if (existing.profileId !== user.id) {
+        return c.json({ error: "Session save key conflict." }, 409);
+      }
+
+      return c.json({ session: existing, duplicate: true }, 200);
+    }
+  }
+
   await prisma.profile.upsert({
     where: { id: user.id },
     update: {},
@@ -270,6 +289,7 @@ sessionRoutes.post("/", async (c) => {
   const session = await prisma.focusSession.create({
     data: {
       profileId: user.id,
+      clientSessionId,
       intention:
         typeof body.intention === "string" && body.intention.trim()
           ? body.intention.trim().slice(0, 180)
