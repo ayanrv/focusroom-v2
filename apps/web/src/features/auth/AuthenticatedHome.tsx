@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Link } from "react-router-dom";
 import { AtmosphereLayer, FocusMark, type Room } from "../../components/AtmosphereLayer";
 import { apiFetch } from "../../lib/api";
@@ -119,9 +126,15 @@ function readCustomRoom(): CustomRoomConfig {
 
 function formatClock(seconds: number) {
   const safe = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(safe / 60).toString().padStart(2, "0");
-  const secs = (safe % 60).toString().padStart(2, "0");
-  return `${minutes}:${secs}`;
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const secs = safe % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 export function AuthenticatedHome() {
@@ -218,7 +231,7 @@ export function AuthenticatedHome() {
     key: LayerKey;
     label: string;
     value: number;
-    setter: React.Dispatch<React.SetStateAction<number>>;
+    setter: Dispatch<SetStateAction<number>>;
   }> = [
     { key: "a", label: layerMeta.a.label, value: controlA, setter: setControlA },
     { key: "b", label: layerMeta.b.label, value: controlB, setter: setControlB },
@@ -675,7 +688,7 @@ export function AuthenticatedHome() {
                     <p>{intention || "Focus session"}</p>
                   </div>
 
-                  <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as React.CSSProperties}>
+                  <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as CSSProperties}>
                     <svg viewBox="0 0 240 240" aria-hidden="true">
                       <circle cx="120" cy="120" r="106" />
                       <circle className="is-progress" cx="120" cy="120" r="106" />
@@ -728,7 +741,7 @@ export function AuthenticatedHome() {
             <>
               <p className="focus-state__goal">{intention || "Focus session"}</p>
 
-              <div className="focus-state__timer" style={{ "--progress": progress } as React.CSSProperties}>
+              <div className="focus-state__timer" style={{ "--progress": progress } as CSSProperties}>
                 <svg viewBox="0 0 240 240" aria-hidden="true">
                   <circle cx="120" cy="120" r="106" />
                   <circle className="is-progress" cx="120" cy="120" r="106" />
