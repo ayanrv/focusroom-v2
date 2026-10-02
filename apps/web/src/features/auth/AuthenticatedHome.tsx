@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AtmosphereLayer, FocusMark, type Room } from "../../components/AtmosphereLayer";
 import { apiFetch } from "../../lib/api";
-import { focusAudioEngine } from "../audio/FocusAudioEngine";
+import { focusAudioEngine, roomAudioConfig, type LayerKey } from "../audio/FocusAudioEngine";
 import { useAuth } from "./AuthContext";
 import "./focus-app.css";
 
@@ -35,17 +35,10 @@ const roomNames: Record<Room, string> = {
 };
 
 const roomNotes: Record<Room, string> = {
-  "rain-city": "rain / traffic / neon hum",
-  "night-train": "rails / cabin / night air",
-  "orbital-lab": "ventilation / comms / drone",
-  "cozy-cafe": "murmur / cups / vinyl",
-};
-
-const roomControls: Record<Room, [string, string, string]> = {
-  "rain-city": ["Rain", "Traffic", "Neon hum"],
-  "night-train": ["Rails", "Cabin", "Night air"],
-  "orbital-lab": ["Ventilation", "Comms", "Drone"],
-  "cozy-cafe": ["Murmur", "Cups", "Vinyl"],
+  "rain-city": "rain / traffic / city life",
+  "night-train": "rails / wind / lo-fi",
+  "orbital-lab": "cosmos / ventilation / systems",
+  "cozy-cafe": "crowd / coffee bar / jazz + vinyl",
 };
 
 const rooms = Object.keys(roomNames) as Room[];
@@ -134,7 +127,17 @@ export function AuthenticatedHome() {
   const elapsedSeconds = Math.max(0, plannedSeconds - remainingSeconds);
   const progress = plannedSeconds > 0 ? Math.min(1, elapsedSeconds / plannedSeconds) : 0;
 
-  const labels = roomControls[room];
+  const layerMeta = roomAudioConfig[room];
+  const controls: Array<{
+    key: LayerKey;
+    label: string;
+    value: number;
+    setter: React.Dispatch<React.SetStateAction<number>>;
+  }> = [
+    { key: "a", label: layerMeta.a.label, value: controlA, setter: setControlA },
+    { key: "b", label: layerMeta.b.label, value: controlB, setter: setControlB },
+    { key: "c", label: layerMeta.c.label, value: controlC, setter: setControlC },
+  ];
 
   const refreshHistory = async () => {
     try {
@@ -467,26 +470,28 @@ export function AuthenticatedHome() {
               <b>{masterVolume}</b>
             </label>
 
-            {[
-              { label: labels[0], value: controlA, setter: setControlA },
-              { label: labels[1], value: controlB, setter: setControlB },
-              { label: labels[2], value: controlC, setter: setControlC },
-            ].map((control) => (
-              <label className="focus-slider" key={control.label}>
-                <span>{control.label}</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={control.value}
-                  onChange={(event) => control.setter(Number(event.target.value))}
-                />
-                <b>{control.value}</b>
-              </label>
-            ))}
+            {controls.map((control) => {
+              const meta = layerMeta[control.key];
+              return (
+                <label className="focus-slider" key={control.key}>
+                  <span>
+                    {control.label}
+                    <small>{meta.kind === "procedural" ? "generated" : "audio file"}</small>
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={control.value}
+                    onChange={(event) => control.setter(Number(event.target.value))}
+                  />
+                  <b>{control.value}</b>
+                </label>
+              );
+            })}
 
             <p className="focus-sound__note">
-              Procedural ambience preview. Recorded seamless room audio comes next.
+              Generated layers work now. File layers are wired and will start automatically once the matching audio files are added.
             </p>
           </section>
 
