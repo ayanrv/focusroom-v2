@@ -963,3 +963,24 @@
     transition: none !important;
   }
 }
+
+
+/* Keep room artwork crisp inside the product UI. */
+.focus-dashboard .ambient-orb,
+.focus-state .ambient-orb,
+.focus-dashboard .noise-field,
+.focus-state .noise-field,
+.focus-dashboard .edge-vignette,
+.focus-state .edge-vignette {
+  display: none !important;
+}
+
+.focus-dashboard .room-motion--cafe,
+.focus-state .room-motion--cafe {
+  filter: none !important;
+}
+
+.focus-dashboard__body,
+.focus-state__content {
+  background: transparent;
+}
