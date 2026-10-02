@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AtmosphereLayer, FocusMark, type Room } from "../../components/AtmosphereLayer";
 import { apiFetch } from "../../lib/api";
+import { focusAudioEngine } from "../audio/FocusAudioEngine";
 import { useAuth } from "./AuthContext";
 import "./focus-app.css";
 
@@ -50,6 +51,7 @@ const roomControls: Record<Room, [string, string, string]> = {
 const rooms = Object.keys(roomNames) as Room[];
 
 const STORAGE_KEY = "focusroom-active-session";
+const AUDIO_SETTINGS_KEY = "focusroom-audio-settings";
 
 type StoredSession = {
   room: Room;
@@ -110,6 +112,18 @@ export function AuthenticatedHome() {
   const [controlA, setControlA] = useState(saved?.controlA ?? 72);
   const [controlB, setControlB] = useState(saved?.controlB ?? 46);
   const [controlC, setControlC] = useState(saved?.controlC ?? 58);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [masterVolume, setMasterVolume] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(AUDIO_SETTINGS_KEY);
+      if (!raw) return 72;
+      const parsed = JSON.parse(raw) as { masterVolume?: number };
+      return typeof parsed.masterVolume === "number" ? parsed.masterVolume : 72;
+    } catch {
+      return 72;
+    }
+  });
+  const [muted, setMuted] = useState(false);
   const [history, setHistory] = useState<SessionRecord[]>([]);
   const [summary, setSummary] = useState({ totalSessions: 0, totalSeconds: 0 });
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -139,7 +153,24 @@ export function AuthenticatedHome() {
 
   useEffect(() => {
     window.localStorage.setItem("focusroom-room", room);
+    focusAudioEngine.setRoom(room);
   }, [room]);
+
+  useEffect(() => {
+    focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
+  }, [controlA, controlB, controlC]);
+
+  useEffect(() => {
+    focusAudioEngine.setMasterVolume(masterVolume);
+    window.localStorage.setItem(
+      AUDIO_SETTINGS_KEY,
+      JSON.stringify({ masterVolume }),
+    );
+  }, [masterVolume]);
+
+  useEffect(() => {
+    focusAudioEngine.setMuted(muted);
+  }, [muted]);
 
   useEffect(() => {
     const snapshot: StoredSession = {
@@ -183,6 +214,19 @@ export function AuthenticatedHome() {
 
     return () => window.clearInterval(interval);
   }, [runningSince]);
+
+  const enableSound = async () => {
+    try {
+      await focusAudioEngine.enable();
+      focusAudioEngine.setRoom(room);
+      focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
+      focusAudioEngine.setMasterVolume(masterVolume);
+      focusAudioEngine.setMuted(muted);
+      setSoundEnabled(true);
+    } catch {
+      setHistoryError("Your browser could not start audio playback.");
+    }
+  };
 
   const chooseDuration = (minutes: number) => {
     if (active) return;
@@ -385,8 +429,40 @@ export function AuthenticatedHome() {
                 <p className="focus-app__eyebrow">SOUND</p>
                 <h2>Atmosphere</h2>
               </div>
-              <span>visual preview</span>
+              <span>{soundEnabled ? "live audio" : "audio ready"}</span>
             </div>
+
+            <div className="sound-engine-controls">
+              <button
+                className={`sound-power ${soundEnabled ? "is-on" : ""}`}
+                type="button"
+                onClick={() => void enableSound()}
+              >
+                <i />
+                {soundEnabled ? "Sound on" : "Enable sound"}
+              </button>
+
+              <button
+                className="sound-mute"
+                type="button"
+                disabled={!soundEnabled}
+                onClick={() => setMuted((value) => !value)}
+              >
+                {muted ? "Unmute" : "Mute"}
+              </button>
+            </div>
+
+            <label className="focus-slider focus-slider--master">
+              <span>Master</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={masterVolume}
+                onChange={(event) => setMasterVolume(Number(event.target.value))}
+              />
+              <b>{masterVolume}</b>
+            </label>
 
             {[
               { label: labels[0], value: controlA, setter: setControlA },
@@ -405,6 +481,10 @@ export function AuthenticatedHome() {
                 <b>{control.value}</b>
               </label>
             ))}
+
+            <p className="focus-sound__note">
+              Procedural ambience preview. Recorded seamless room audio comes next.
+            </p>
           </section>
 
           <section className="focus-history">
