@@ -591,6 +591,7 @@ export function AuthenticatedHome() {
   const backgroundRoom = previewRoom && previewRoom !== "custom" ? previewRoom : room;
   const showCustomBackdrop = customBuilder || previewRoom === "custom" || Boolean(activeCustomRoom);
   const customTheme = activeCustomRoom?.theme ?? customDraft.theme;
+  const progressMode = tab === "progress";
   const customPreviewItem = customDraft.queue[customPreviewIndex] ?? customDraft.queue[0] ?? null;
   const currentCustomItem = activeCustomRoom
     ? activeCustomRoom.queue[Math.min(customQueueIndex, Math.max(0, activeCustomRoom.queue.length - 1))] ?? null
@@ -783,8 +784,13 @@ export function AuthenticatedHome() {
   }
 
   return (
-    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${showCustomBackdrop ? `focus-dashboard--custom-preview custom-shell--${customTheme}` : ""}`}>
-      {showCustomBackdrop ? (
+    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${progressMode ? "focus-dashboard--progress" : ""} ${!progressMode && showCustomBackdrop ? `focus-dashboard--custom-preview custom-shell--${customTheme}` : ""}`}>
+      {progressMode ? (
+        <div className="progress-backdrop" aria-hidden="true">
+          <i />
+          <i />
+        </div>
+      ) : showCustomBackdrop ? (
         <CustomRoomBackdrop
           theme={customTheme}
           roomName={activeCustomRoom?.name ?? (customDraft.name.trim() || "My Room")}
