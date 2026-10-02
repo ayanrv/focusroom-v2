@@ -9,7 +9,6 @@ import {
   customRoomThemes,
   mediaItemLabel,
   parseCustomMedia,
-  providerLabel,
   type CustomRoomConfig,
 } from "../custom-room/CustomRoomMedia";
 import { useAuth } from "./AuthContext";
@@ -417,6 +416,8 @@ export function AuthenticatedHome() {
       setStartedAt(null);
       setRemainingSeconds(plannedSeconds);
       setActiveCustomRoom(null);
+      setCustomQueueIndex(0);
+      setCustomQueueOpen(false);
       setInFocusView(false);
       setSetupStep("goal");
       window.localStorage.removeItem(STORAGE_KEY);
@@ -613,6 +614,10 @@ export function AuthenticatedHome() {
                       Add
                     </button>
                   </div>
+                  {customMediaError ? <small className="custom-focus-queue__error">{customMediaError}</small> : null}
+                  <p className="custom-focus-queue__hint">
+                    YouTube videos advance automatically through this queue. Spotify and Apple Music playlists/albums continue inside their own players; for separate cross-provider items, use previous/next.
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -679,7 +684,7 @@ export function AuthenticatedHome() {
       {showCustomBackdrop ? (
         <CustomRoomBackdrop
           theme={customTheme}
-          roomName={activeCustomRoom?.name ?? customDraft.name.trim() || "My Room"}
+          roomName={activeCustomRoom?.name ?? (customDraft.name.trim() || "My Room")}
         />
       ) : (
         <AtmosphereLayer
