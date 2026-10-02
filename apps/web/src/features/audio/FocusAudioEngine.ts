@@ -232,7 +232,14 @@ export class FocusAudioEngine {
 
   async enable() {
     if (!this.context) {
-      const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
+      const AudioContextCtor =
+        window.AudioContext ??
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+      if (!AudioContextCtor) {
+        throw new Error("Web Audio is not supported in this browser.");
+      }
+
       this.context = new AudioContextCtor();
       this.master = this.context.createGain();
       this.master.connect(this.context.destination);
@@ -343,12 +350,6 @@ export class FocusAudioEngine {
     void this.context.close();
     this.context = null;
     this.master = null;
-  }
-}
-
-declare global {
-  interface Window {
-    webkitAudioContext: typeof AudioContext;
   }
 }
 
