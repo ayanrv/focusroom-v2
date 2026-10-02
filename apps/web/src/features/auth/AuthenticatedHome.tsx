@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Link } from "react-router-dom";
 import { AtmosphereLayer, FocusMark, type Room } from "../../components/AtmosphereLayer";
 import { apiFetch } from "../../lib/api";
@@ -11,29 +18,10 @@ import {
   parseCustomMedia,
   type CustomRoomConfig,
 } from "../custom-room/CustomRoomMedia";
+import { SessionCompletion } from "../focus/SessionCompletion";
+import { ProgressPanel, type ProgressResponse } from "../progress/ProgressPanel";
 import { useAuth } from "./AuthContext";
 import "./focus-app.css";
-
-type SessionRecord = {
-  id: string;
-  intention: string | null;
-  room: string;
-  plannedSeconds: number;
-  elapsedSeconds: number;
-  ambienceA: number;
-  ambienceB: number;
-  ambienceC: number;
-  startedAt: string;
-  endedAt: string;
-};
-
-type SessionsResponse = {
-  sessions: SessionRecord[];
-  summary: {
-    totalSessions: number;
-    totalSeconds: number;
-  };
-};
 
 type DashboardTab = "focus" | "sound" | "progress";
 type SetupStep = "goal" | "time" | "room";
@@ -68,6 +56,7 @@ type StoredSession = {
   room: Room;
   intention: string;
   plannedSeconds: number;
+  initialPlannedSeconds?: number;
   remainingSeconds: number;
   startedAt: string | null;
   deadline?: number | null;
@@ -77,7 +66,15 @@ type StoredSession = {
   controlC: number;
   customRoom?: CustomRoomConfig | null;
   customQueueIndex?: number;
+  completionPending?: boolean;
+  clientSessionId?: string | null;
 };
+
+function makeClientSessionId() {
+  if ("randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 
 function resolveRoom(value: string | null): Room {
   if (value === "night-train" || value === "orbital-lab" || value === "cozy-cafe") {
@@ -129,24 +126,15 @@ function readCustomRoom(): CustomRoomConfig {
 
 function formatClock(seconds: number) {
   const safe = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(safe / 60).toString().padStart(2, "0");
-  const secs = (safe % 60).toString().padStart(2, "0");
-  return `${minutes}:${secs}`;
-}
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const secs = safe % 60;
 
-function formatDuration(seconds: number) {
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-}
-
-function displayRoom(value: string) {
-  if (value.startsWith("custom:")) {
-    return value.slice("custom:".length) || "Custom Room";
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
-  return roomNames[resolveRoom(value)];
+
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 export function AuthenticatedHome() {
@@ -165,9 +153,16 @@ export function AuthenticatedHome() {
   const saved = savedRef.current;
   const savedCustomRoom = saved?.customRoom ? normalizeCustomRoom(saved.customRoom) : null;
   const initialRoom = saved?.room ?? resolveRoom(window.localStorage.getItem("focusroom-room"));
-  const initialDeadline =
+  const rawInitialDeadline =
     saved?.deadline ??
     (saved?.runningSince ? Date.now() + Math.max(0, saved.remainingSeconds) * 1000 : null);
+  const initialCompletionPending = Boolean(
+    saved?.completionPending ||
+    (saved?.startedAt && rawInitialDeadline && rawInitialDeadline <= Date.now()) ||
+    (saved?.startedAt && !rawInitialDeadline && saved.remainingSeconds <= 0),
+  );
+  const initialDeadline =
+    rawInitialDeadline && rawInitialDeadline > Date.now() ? rawInitialDeadline : null;
 
   const [tab, setTab] = useState<DashboardTab>("focus");
   const [setupStep, setSetupStep] = useState<SetupStep>("goal");
@@ -178,9 +173,21 @@ export function AuthenticatedHome() {
   const [room, setRoom] = useState<Room>(initialRoom);
   const [intention, setIntention] = useState(saved?.intention ?? "");
   const [plannedSeconds, setPlannedSeconds] = useState(saved?.plannedSeconds ?? 25 * 60);
-  const [remainingSeconds, setRemainingSeconds] = useState(saved?.remainingSeconds ?? 25 * 60);
+  const [initialPlannedSeconds, setInitialPlannedSeconds] = useState(
+    saved?.initialPlannedSeconds ?? saved?.plannedSeconds ?? 25 * 60,
+  );
+  const [remainingSeconds, setRemainingSeconds] = useState(
+    initialCompletionPending ? 0 : (saved?.remainingSeconds ?? 25 * 60),
+  );
   const [startedAt, setStartedAt] = useState<string | null>(saved?.startedAt ?? null);
+  const [clientSessionId, setClientSessionId] = useState<string | null>(
+    saved?.clientSessionId ?? (saved?.startedAt ? makeClientSessionId() : null),
+  );
   const [deadline, setDeadline] = useState<number | null>(initialDeadline);
+  const [completionPending, setCompletionPending] = useState(initialCompletionPending);
+  const [customMinutes, setCustomMinutes] = useState(
+    String(Math.max(1, Math.round((saved?.plannedSeconds ?? 25 * 60) / 60))),
+  );
   const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(savedCustomRoom);
 
   const [customDraft, setCustomDraft] = useState<CustomRoomConfig>(() => savedCustomRoom ?? readCustomRoom());
@@ -207,9 +214,11 @@ export function AuthenticatedHome() {
   });
   const [muted, setMuted] = useState(false);
 
-  const [history, setHistory] = useState<SessionRecord[]>([]);
-  const [summary, setSummary] = useState({ totalSessions: 0, totalSeconds: 0 });
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  const savingRef = useRef(false);
+  const [progressData, setProgressData] = useState<ProgressResponse | null>(null);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [progressError, setProgressError] = useState<string | null>(null);
+  const [, setWorkspaceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const running = deadline !== null;
@@ -222,26 +231,39 @@ export function AuthenticatedHome() {
     key: LayerKey;
     label: string;
     value: number;
-    setter: React.Dispatch<React.SetStateAction<number>>;
+    setter: Dispatch<SetStateAction<number>>;
   }> = [
     { key: "a", label: layerMeta.a.label, value: controlA, setter: setControlA },
     { key: "b", label: layerMeta.b.label, value: controlB, setter: setControlB },
     { key: "c", label: layerMeta.c.label, value: controlC, setter: setControlC },
   ];
 
-  const refreshHistory = async () => {
+  const refreshProgress = async () => {
+    setProgressLoading(true);
     try {
-      const response = await apiFetch<SessionsResponse>("/sessions");
-      setHistory(response.sessions);
-      setSummary(response.summary);
-      setHistoryError(null);
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      const response = await apiFetch<ProgressResponse>(
+        `/sessions/progress?timeZone=${encodeURIComponent(timeZone)}`,
+      );
+      setProgressData(response);
+      setProgressError(null);
     } catch (error) {
-      setHistoryError(error instanceof Error ? error.message : "Could not load session history.");
+      setProgressError(error instanceof Error ? error.message : "Could not load progress.");
+    } finally {
+      setProgressLoading(false);
     }
   };
 
+
+  const deleteProgressSession = async (id: string) => {
+    await apiFetch<{ success: boolean }>(`/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    await refreshProgress();
+  };
+
   useEffect(() => {
-    void refreshHistory();
+    void refreshProgress();
     return () => focusAudioEngine.destroy();
   }, []);
 
@@ -268,10 +290,16 @@ export function AuthenticatedHome() {
   }, [customDraft]);
 
   useEffect(() => {
+    if (!startedAt) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
     const snapshot: StoredSession = {
       room,
       intention,
       plannedSeconds,
+      initialPlannedSeconds,
       remainingSeconds,
       startedAt,
       deadline,
@@ -280,12 +308,15 @@ export function AuthenticatedHome() {
       controlC,
       customRoom: activeCustomRoom,
       customQueueIndex,
+      completionPending,
+      clientSessionId,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
     room,
     intention,
     plannedSeconds,
+    initialPlannedSeconds,
     remainingSeconds,
     startedAt,
     deadline,
@@ -294,6 +325,8 @@ export function AuthenticatedHome() {
     controlC,
     activeCustomRoom,
     customQueueIndex,
+    completionPending,
+    clientSessionId,
   ]);
 
   useEffect(() => {
@@ -302,11 +335,14 @@ export function AuthenticatedHome() {
     const tick = () => {
       const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemainingSeconds(next);
-      if (next <= 0) setDeadline(null);
+      if (next <= 0) {
+        setDeadline(null);
+        setCompletionPending(true);
+      }
     };
 
     tick();
-    const interval = window.setInterval(tick, 250);
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, [deadline]);
 
@@ -319,15 +355,24 @@ export function AuthenticatedHome() {
       focusAudioEngine.setMuted(muted);
       setSoundEnabled(true);
     } catch {
-      setHistoryError("Your browser could not start audio playback.");
+      setWorkspaceError("Your browser could not start audio playback.");
     }
   };
 
   const chooseDuration = (minutes: number) => {
     if (active) return;
-    const seconds = minutes * 60;
+    const safeMinutes = Math.max(1, Math.min(720, Math.round(minutes)));
+    const seconds = safeMinutes * 60;
+    setCustomMinutes(String(safeMinutes));
     setPlannedSeconds(seconds);
+    setInitialPlannedSeconds(seconds);
     setRemainingSeconds(seconds);
+  };
+
+  const applyCustomDuration = () => {
+    const minutes = Number(customMinutes);
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 720) return;
+    chooseDuration(minutes);
   };
 
   const beginSession = async (selectedRoom: Room) => {
@@ -335,8 +380,11 @@ export function AuthenticatedHome() {
     setActiveCustomRoom(null);
     setCustomBuilder(false);
     const now = new Date().toISOString();
+    setClientSessionId(makeClientSessionId());
     setStartedAt(now);
+    setInitialPlannedSeconds(plannedSeconds);
     setRemainingSeconds(plannedSeconds);
+    setCompletionPending(false);
     setDeadline(Date.now() + plannedSeconds * 1000);
     setInFocusView(true);
 
@@ -371,13 +419,18 @@ export function AuthenticatedHome() {
     setCustomBuilder(false);
 
     const now = new Date().toISOString();
+    setClientSessionId(makeClientSessionId());
     setStartedAt(now);
+    setInitialPlannedSeconds(plannedSeconds);
     setRemainingSeconds(plannedSeconds);
+    setCompletionPending(false);
     setDeadline(Date.now() + plannedSeconds * 1000);
     setInFocusView(true);
   };
 
   const pauseOrResume = () => {
+    if (completionPending) return;
+
     if (deadline !== null) {
       const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemainingSeconds(next);
@@ -389,8 +442,9 @@ export function AuthenticatedHome() {
     setDeadline(Date.now() + remainingSeconds * 1000);
   };
 
-  const endAndSave = async () => {
-    if (!startedAt || saving) return;
+  const endAndSave = async (completed = false) => {
+    if (!startedAt || savingRef.current) return;
+    savingRef.current = true;
 
     if (deadline !== null) {
       setRemainingSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
@@ -402,15 +456,19 @@ export function AuthenticatedHome() {
     const currentRemaining =
       deadline !== null ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : remainingSeconds;
     const elapsed = Math.max(1, plannedSeconds - currentRemaining);
+    const completedSession = completed || currentRemaining <= 0;
 
     try {
       await apiFetch("/sessions", {
         method: "POST",
         body: JSON.stringify({
+          clientSessionId,
           intention,
           room: activeCustomRoom ? `custom:${activeCustomRoom.name}` : room,
           plannedSeconds,
+          initialPlannedSeconds,
           elapsedSeconds: elapsed,
+          completed: completedSession,
           ambienceA: activeCustomRoom ? 0 : controlA,
           ambienceB: activeCustomRoom ? 0 : controlB,
           ambienceC: activeCustomRoom ? 0 : controlC,
@@ -420,19 +478,33 @@ export function AuthenticatedHome() {
       });
 
       setStartedAt(null);
+      setClientSessionId(null);
+      setCompletionPending(false);
       setRemainingSeconds(plannedSeconds);
+      setInitialPlannedSeconds(plannedSeconds);
+      setIntention("");
       setActiveCustomRoom(null);
       setCustomQueueIndex(0);
       setCustomQueueOpen(false);
       setInFocusView(false);
       setSetupStep("goal");
       window.localStorage.removeItem(STORAGE_KEY);
-      await refreshHistory();
+      await refreshProgress();
     } catch (error) {
-      setHistoryError(error instanceof Error ? error.message : "Could not save the session.");
+      setWorkspaceError(error instanceof Error ? error.message : "Could not save the session.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
+  };
+
+  const extendSession = (minutes: number) => {
+    if (!startedAt || minutes <= 0) return;
+    const extraSeconds = Math.round(minutes * 60);
+    setPlannedSeconds((current) => current + extraSeconds);
+    setRemainingSeconds(extraSeconds);
+    setCompletionPending(false);
+    setDeadline(Date.now() + extraSeconds * 1000);
   };
 
   const addCustomMedia = () => {
@@ -516,10 +588,10 @@ export function AuthenticatedHome() {
   const nextCustomMedia = () => goToCustomQueueItem(customQueueIndex + 1);
   const previousCustomMedia = () => goToCustomQueueItem(customQueueIndex - 1);
 
-  const totalHours = (summary.totalSeconds / 3600).toFixed(summary.totalSeconds >= 36000 ? 0 : 1);
   const backgroundRoom = previewRoom && previewRoom !== "custom" ? previewRoom : room;
   const showCustomBackdrop = customBuilder || previewRoom === "custom" || Boolean(activeCustomRoom);
   const customTheme = activeCustomRoom?.theme ?? customDraft.theme;
+  const progressMode = tab === "progress";
   const customPreviewItem = customDraft.queue[customPreviewIndex] ?? customDraft.queue[0] ?? null;
   const currentCustomItem = activeCustomRoom
     ? activeCustomRoom.queue[Math.min(customQueueIndex, Math.max(0, activeCustomRoom.queue.length - 1))] ?? null
@@ -602,30 +674,42 @@ export function AuthenticatedHome() {
 
           <section className="custom-focus">
             <div className="custom-focus__session">
-              <div className="custom-focus__heading">
-                <span>{activeCustomRoom.name}</span>
-                <p>{intention || "Focus session"}</p>
-              </div>
+              {completionPending ? (
+                <SessionCompletion
+                  goal={intention}
+                  focusedSeconds={plannedSeconds}
+                  saving={saving}
+                  onSave={() => void endAndSave(true)}
+                  onExtend={extendSession}
+                />
+              ) : (
+                <>
+                  <div className="custom-focus__heading">
+                    <span>{activeCustomRoom.name}</span>
+                    <p>{intention || "Focus session"}</p>
+                  </div>
 
-              <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as React.CSSProperties}>
-                <svg viewBox="0 0 240 240" aria-hidden="true">
-                  <circle cx="120" cy="120" r="106" />
-                  <circle className="is-progress" cx="120" cy="120" r="106" />
-                </svg>
-                <div>
-                  <strong>{formatClock(remainingSeconds)}</strong>
-                  <span>{running ? "FOCUSING" : "PAUSED"}</span>
-                </div>
-              </div>
+                  <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as CSSProperties}>
+                    <svg viewBox="0 0 240 240" aria-hidden="true">
+                      <circle cx="120" cy="120" r="106" />
+                      <circle className="is-progress" cx="120" cy="120" r="106" />
+                    </svg>
+                    <div>
+                      <strong>{formatClock(remainingSeconds)}</strong>
+                      <span>{running ? "FOCUSING" : "PAUSED"}</span>
+                    </div>
+                  </div>
 
-              <div className="focus-state__actions">
-                <button type="button" onClick={pauseOrResume}>
-                  {running ? "Stop" : "Resume"}
-                </button>
-                <button className="focus-state__end" type="button" onClick={() => void endAndSave()} disabled={saving}>
-                  {saving ? "Saving…" : "End"}
-                </button>
-              </div>
+                  <div className="focus-state__actions">
+                    <button type="button" onClick={pauseOrResume}>
+                      {running ? "Stop" : "Resume"}
+                    </button>
+                    <button className="focus-state__end" type="button" onClick={() => void endAndSave(false)} disabled={saving}>
+                      {saving ? "Saving…" : "End"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
 
@@ -646,50 +730,67 @@ export function AuthenticatedHome() {
         </button>
 
         <section className="focus-state__content">
-          <p className="focus-state__goal">{intention || "Focus session"}</p>
+          {completionPending ? (
+            <SessionCompletion
+              goal={intention}
+              focusedSeconds={plannedSeconds}
+              saving={saving}
+              onSave={() => void endAndSave(true)}
+              onExtend={extendSession}
+            />
+          ) : (
+            <>
+              <p className="focus-state__goal">{intention || "Focus session"}</p>
 
-          <div className="focus-state__timer" style={{ "--progress": progress } as React.CSSProperties}>
-            <svg viewBox="0 0 240 240" aria-hidden="true">
-              <circle cx="120" cy="120" r="106" />
-              <circle className="is-progress" cx="120" cy="120" r="106" />
-            </svg>
-            <div>
-              <strong>{formatClock(remainingSeconds)}</strong>
-              <span>{running ? "FOCUSING" : "PAUSED"}</span>
-            </div>
-          </div>
+              <div className="focus-state__timer" style={{ "--progress": progress } as CSSProperties}>
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                  <circle cx="120" cy="120" r="106" />
+                  <circle className="is-progress" cx="120" cy="120" r="106" />
+                </svg>
+                <div>
+                  <strong>{formatClock(remainingSeconds)}</strong>
+                  <span>{running ? "FOCUSING" : "PAUSED"}</span>
+                </div>
+              </div>
 
-          <div className="focus-state__actions">
-            <button type="button" onClick={pauseOrResume}>
-              {running ? "Stop" : "Resume"}
-            </button>
-            <button className="focus-state__end" type="button" onClick={() => void endAndSave()} disabled={saving}>
-              {saving ? "Saving…" : "End"}
-            </button>
-          </div>
+              <div className="focus-state__actions">
+                <button type="button" onClick={pauseOrResume}>
+                  {running ? "Stop" : "Resume"}
+                </button>
+                <button className="focus-state__end" type="button" onClick={() => void endAndSave(false)} disabled={saving}>
+                  {saving ? "Saving…" : "End"}
+                </button>
+              </div>
 
-          <div className="focus-state__mixer">
-            {controls.map((control) => (
-              <label key={control.key}>
-                <span>{control.label}</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={control.value}
-                  onChange={(event) => control.setter(Number(event.target.value))}
-                />
-              </label>
-            ))}
-          </div>
+              <div className="focus-state__mixer">
+                {controls.map((control) => (
+                  <label key={control.key}>
+                    <span>{control.label}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={control.value}
+                      onChange={(event) => control.setter(Number(event.target.value))}
+                    />
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       </main>
     );
   }
 
   return (
-    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${showCustomBackdrop ? `focus-dashboard--custom-preview custom-shell--${customTheme}` : ""}`}>
-      {showCustomBackdrop ? (
+    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${progressMode ? "focus-dashboard--progress" : ""} ${!progressMode && showCustomBackdrop ? `focus-dashboard--custom-preview custom-shell--${customTheme}` : ""}`}>
+      {progressMode ? (
+        <div className="progress-backdrop" aria-hidden="true">
+          <i />
+          <i />
+        </div>
+      ) : showCustomBackdrop ? (
         <CustomRoomBackdrop
           theme={customTheme}
           roomName={activeCustomRoom?.name ?? (customDraft.name.trim() || "My Room")}
@@ -702,7 +803,10 @@ export function AuthenticatedHome() {
       )}
 
       {activeCustomRoom && currentCustomItem ? (
-        <div key="custom-media-session" className="custom-persistent-media custom-persistent-media--dock">
+        <div
+          key="custom-media-session"
+          className={`custom-persistent-media custom-persistent-media--dock custom-shell--${activeCustomRoom.theme}`}
+        >
           <div className="custom-focus__media-head">
             <span>{mediaItemLabel(currentCustomItem)}</span>
             <small>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</small>
@@ -769,6 +873,7 @@ export function AuthenticatedHome() {
             onClick={() => {
               setCustomBuilder(false);
               setTab("progress");
+              void refreshProgress();
             }}
           >
             Progress
@@ -792,7 +897,9 @@ export function AuthenticatedHome() {
                 <span className="focus-setup__active-space">
                   {activeCustomRoom ? activeCustomRoom.name : roomNames[room]}
                 </span>
-                <button type="button" onClick={() => setInFocusView(true)}>Return to focus</button>
+                <button type="button" onClick={() => setInFocusView(true)}>
+                  {completionPending ? "Review completed session" : "Return to focus"}
+                </button>
               </div>
             ) : customBuilder ? (
               <div className="custom-builder custom-builder--live">
@@ -984,8 +1091,42 @@ export function AuthenticatedHome() {
                         </button>
                       ))}
                     </div>
+
+                    <div className="focus-custom-duration">
+                      <span>OR SET YOUR OWN</span>
+                      <div>
+                        <label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="720"
+                            inputMode="numeric"
+                            value={customMinutes}
+                            onChange={(event) => setCustomMinutes(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") applyCustomDuration();
+                            }}
+                            aria-label="Custom focus duration in minutes"
+                          />
+                          <small>minutes</small>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={applyCustomDuration}
+                          disabled={
+                            !Number.isFinite(Number(customMinutes)) ||
+                            Number(customMinutes) < 1 ||
+                            Number(customMinutes) > 720
+                          }
+                        >
+                          Use time
+                        </button>
+                      </div>
+                      <small>From 1 minute to 12 hours.</small>
+                    </div>
+
                     <button className="focus-setup__continue" type="button" onClick={() => setSetupStep("room")}>
-                      Choose a space
+                      Choose a space · {Math.round(plannedSeconds / 60)} min
                     </button>
                   </div>
                 ) : null}
@@ -1101,32 +1242,13 @@ export function AuthenticatedHome() {
         ) : null}
 
         {tab === "progress" ? (
-          <section className="dashboard-panel dashboard-panel--progress">
-            <p className="focus-app__eyebrow">PROGRESS</p>
-            <h1>Your focus history.</h1>
-
-            <div className="progress-summary">
-              <div><strong>{summary.totalSessions}</strong><span>sessions</span></div>
-              <div><strong>{totalHours}</strong><span>hours focused</span></div>
-            </div>
-
-            <div className="progress-session-list">
-              {history.map((session) => (
-                <article key={session.id}>
-                  <div>
-                    <strong>{session.intention || "Untitled focus session"}</strong>
-                    <span>{displayRoom(session.room)}</span>
-                  </div>
-                  <div>
-                    <b>{formatDuration(session.elapsedSeconds)}</b>
-                    <small>{new Date(session.startedAt).toLocaleDateString()}</small>
-                  </div>
-                </article>
-              ))}
-              {!history.length && !historyError ? <p>No completed sessions yet.</p> : null}
-              {historyError ? <p>{historyError}</p> : null}
-            </div>
-          </section>
+          <ProgressPanel
+            data={progressData}
+            loading={progressLoading}
+            error={progressError}
+            onRetry={() => void refreshProgress()}
+            onDeleteSession={deleteProgressSession}
+          />
         ) : null}
       </section>
     </main>
