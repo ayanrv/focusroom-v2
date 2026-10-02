@@ -3099,3 +3099,27 @@
     animation: none !important;
   }
 }
+
+
+.focus-dashboard--progress {
+  --room-a: #76d1de;
+  --room-b: #6f8a92;
+  --room-c: #d7e4e7;
+}
+
+.custom-persistent-media.custom-shell--paper {
+  background: rgba(239, 232, 215, .92);
+  border-color: rgba(23, 23, 19, .14);
+  color: #171713;
+}
+
+.custom-persistent-media.custom-shell--paper .custom-focus__media-head,
+.custom-persistent-media.custom-shell--paper .custom-focus__media-head small,
+.custom-persistent-media.custom-shell--paper .custom-transport > span {
+  color: rgba(23, 23, 19, .48);
+}
+
+.custom-persistent-media.custom-shell--paper .custom-transport button {
+  color: #171713;
+  border-color: rgba(23, 23, 19, .16);
+}
