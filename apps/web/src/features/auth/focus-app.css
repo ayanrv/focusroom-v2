@@ -2178,3 +2178,11 @@
     height: 300px;
   }
 }
+
+
+.custom-persistent-media--focus {
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--custom-accent) 30%, transparent) transparent;
+}
