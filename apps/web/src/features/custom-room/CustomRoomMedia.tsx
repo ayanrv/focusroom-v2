@@ -1,12 +1,20 @@
+import { useEffect, useRef } from "react";
+
 export type CustomRoomProvider = "youtube" | "spotify" | "apple-music";
 export type CustomRoomTheme = "ember" | "moss" | "paper" | "plum";
 
-export type CustomRoomConfig = {
-  name: string;
+export type CustomMediaItem = {
+  id: string;
   provider: CustomRoomProvider;
   sourceUrl: string;
   embedUrl: string;
+  kind: string;
+};
+
+export type CustomRoomConfig = {
+  name: string;
   theme: CustomRoomTheme;
+  queue: CustomMediaItem[];
 };
 
 export const customRoomThemes: Array<{
@@ -19,6 +27,60 @@ export const customRoomThemes: Array<{
   { id: "paper", label: "Paper", note: "ivory / graphite / warm light" },
   { id: "plum", label: "Plum", note: "aubergine / coral / ink" },
 ];
+
+let youtubeReadyPromise: Promise<void> | null = null;
+
+type YouTubePlayer = {
+  destroy: () => void;
+};
+
+type YouTubePlayerApi = {
+  Player: new (
+    element: HTMLIFrameElement,
+    options: {
+      events?: {
+        onStateChange?: (event: { data: number }) => void;
+      };
+    },
+  ) => YouTubePlayer;
+  PlayerState?: {
+    ENDED?: number;
+  };
+};
+
+declare global {
+  interface Window {
+    YT?: YouTubePlayerApi;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+function loadYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve();
+  if (youtubeReadyPromise) return youtubeReadyPromise;
+
+  youtubeReadyPromise = new Promise<void>((resolve) => {
+    const previous = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previous?.();
+      resolve();
+    };
+
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  });
+
+  return youtubeReadyPromise;
+}
+
+function makeId() {
+  if ("randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 function extractIframeSrc(value: string) {
   const match = value.match(/src=["']([^"']+)["']/i);
@@ -45,7 +107,10 @@ function parseYouTube(url: URL) {
   }
 
   if (playlistId && !videoId) {
-    return `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(playlistId)}&playsinline=1&loop=1`;
+    return {
+      embedUrl: `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(playlistId)}&playsinline=1&loop=1&enablejsapi=1`,
+      kind: "playlist",
+    };
   }
 
   if (!videoId) return null;
@@ -54,11 +119,15 @@ function parseYouTube(url: URL) {
     playsinline: "1",
     loop: "1",
     playlist: videoId,
+    enablejsapi: "1",
   });
 
   if (playlistId) params.set("list", playlistId);
 
-  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
+  return {
+    embedUrl: `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`,
+    kind: playlistId ? "playlist" : "video",
+  };
 }
 
 function parseSpotify(url: URL) {
@@ -72,7 +141,10 @@ function parseSpotify(url: URL) {
   const supported = new Set(["track", "album", "playlist", "artist", "show", "episode"]);
   if (!supported.has(type)) return null;
 
-  return `https://open.spotify.com/embed/${type}/${encodeURIComponent(id)}?utm_source=generator`;
+  return {
+    embedUrl: `https://open.spotify.com/embed/${type}/${encodeURIComponent(id)}?utm_source=generator`,
+    kind: type,
+  };
 }
 
 function parseAppleMusic(url: URL) {
@@ -82,11 +154,19 @@ function parseAppleMusic(url: URL) {
   const embed = new URL(url.toString());
   embed.hostname = "embed.music.apple.com";
   embed.protocol = "https:";
-  return embed.toString();
+
+  const path = embed.pathname.toLowerCase();
+  const kind =
+    path.includes("/playlist/") ? "playlist" :
+    path.includes("/album/") ? "album" :
+    path.includes("/music-video/") ? "video" :
+    "music";
+
+  return { embedUrl: embed.toString(), kind };
 }
 
 export function parseCustomMedia(value: string):
-  | { provider: CustomRoomProvider; embedUrl: string; sourceUrl: string }
+  | { item: CustomMediaItem }
   | { error: string } {
   const raw = extractIframeSrc(value);
 
@@ -102,26 +182,34 @@ export function parseCustomMedia(value: string):
   }
 
   const host = url.hostname.replace(/^www\./, "");
+  let parsed: { embedUrl: string; kind: string } | null = null;
+  let provider: CustomRoomProvider | null = null;
 
   if (host === "youtube.com" || host === "music.youtube.com" || host === "youtu.be") {
-    const embedUrl = parseYouTube(url);
-    if (!embedUrl) return { error: "I could not read that YouTube video or playlist." };
-    return { provider: "youtube", embedUrl, sourceUrl: url.toString() };
+    parsed = parseYouTube(url);
+    provider = "youtube";
+    if (!parsed) return { error: "I could not read that YouTube video or playlist." };
+  } else if (host === "open.spotify.com") {
+    parsed = parseSpotify(url);
+    provider = "spotify";
+    if (!parsed) return { error: "Use a Spotify track, album, artist, show, episode or playlist link." };
+  } else if (host === "music.apple.com" || host === "embed.music.apple.com") {
+    parsed = parseAppleMusic(url);
+    provider = "apple-music";
+    if (!parsed) return { error: "I could not read that Apple Music link." };
+  } else {
+    return { error: "Use a link from YouTube, Spotify or Apple Music." };
   }
 
-  if (host === "open.spotify.com") {
-    const embedUrl = parseSpotify(url);
-    if (!embedUrl) return { error: "Use a Spotify track, album, artist, show, episode or playlist link." };
-    return { provider: "spotify", embedUrl, sourceUrl: url.toString() };
-  }
-
-  if (host === "music.apple.com" || host === "embed.music.apple.com") {
-    const embedUrl = parseAppleMusic(url);
-    if (!embedUrl) return { error: "I could not read that Apple Music link." };
-    return { provider: "apple-music", embedUrl, sourceUrl: url.toString() };
-  }
-
-  return { error: "Use a link from YouTube, Spotify or Apple Music." };
+  return {
+    item: {
+      id: makeId(),
+      provider,
+      sourceUrl: url.toString(),
+      embedUrl: parsed.embedUrl,
+      kind: parsed.kind,
+    },
+  };
 }
 
 export function providerLabel(provider: CustomRoomProvider) {
@@ -130,31 +218,92 @@ export function providerLabel(provider: CustomRoomProvider) {
   return "Spotify";
 }
 
-export function CustomMediaEmbed({
-  config,
-  compact = false,
+export function mediaItemLabel(item: CustomMediaItem) {
+  const kind = item.kind.replace("-", " ");
+  return `${providerLabel(item.provider)} · ${kind}`;
+}
+
+function YouTubeEmbed({
+  item,
+  roomName,
+  compact,
+  onEnded,
 }: {
-  config: CustomRoomConfig;
-  compact?: boolean;
+  item: CustomMediaItem;
+  roomName: string;
+  compact: boolean;
+  onEnded?: () => void;
 }) {
-  if (config.provider === "youtube") {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (!onEnded || item.kind === "playlist") return;
+    let player: YouTubePlayer | null = null;
+    let cancelled = false;
+
+    void loadYouTubeApi().then(() => {
+      if (cancelled || !iframeRef.current || !window.YT?.Player) return;
+
+      player = new window.YT.Player(iframeRef.current, {
+        events: {
+          onStateChange: (event) => {
+            const ended = window.YT?.PlayerState?.ENDED ?? 0;
+            if (event.data === ended) onEnded();
+          },
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      try {
+        player?.destroy();
+      } catch {
+        // The provider may already have disposed the player.
+      }
+    };
+  }, [item.id, item.kind, onEnded]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      className={`custom-media custom-media--youtube ${compact ? "is-compact" : ""}`}
+      src={item.embedUrl}
+      title={`${roomName} · YouTube`}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+    />
+  );
+}
+
+export function CustomMediaEmbed({
+  item,
+  roomName,
+  compact = false,
+  onEnded,
+}: {
+  item: CustomMediaItem;
+  roomName: string;
+  compact?: boolean;
+  onEnded?: () => void;
+}) {
+  if (item.provider === "youtube") {
     return (
-      <iframe
-        className={`custom-media custom-media--youtube ${compact ? "is-compact" : ""}`}
-        src={config.embedUrl}
-        title={`${config.name} · YouTube`}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
+      <YouTubeEmbed
+        item={item}
+        roomName={roomName}
+        compact={compact}
+        onEnded={onEnded}
       />
     );
   }
 
-  if (config.provider === "spotify") {
+  if (item.provider === "spotify") {
     return (
       <iframe
         className={`custom-media custom-media--spotify ${compact ? "is-compact" : ""}`}
-        src={config.embedUrl}
-        title={`${config.name} · Spotify`}
+        src={item.embedUrl}
+        title={`${roomName} · Spotify`}
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
         loading="lazy"
       />
@@ -164,8 +313,8 @@ export function CustomMediaEmbed({
   return (
     <iframe
       className={`custom-media custom-media--apple ${compact ? "is-compact" : ""}`}
-      src={config.embedUrl}
-      title={`${config.name} · Apple Music`}
+      src={item.embedUrl}
+      title={`${roomName} · Apple Music`}
       allow="autoplay *; encrypted-media *; fullscreen *"
       sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
       loading="lazy"
@@ -175,8 +324,10 @@ export function CustomMediaEmbed({
 
 export function CustomRoomBackdrop({
   theme,
+  roomName,
 }: {
   theme: CustomRoomTheme;
+  roomName: string;
 }) {
   return (
     <div className={`custom-room-backdrop custom-room-theme--${theme}`} aria-hidden="true">
@@ -185,7 +336,7 @@ export function CustomRoomBackdrop({
       <i className="custom-room-backdrop__shape custom-room-backdrop__shape--two" />
       <i className="custom-room-backdrop__shape custom-room-backdrop__shape--three" />
       <i className="custom-room-backdrop__sweep" />
-      <span>YOUR SPACE</span>
+      <span>{roomName || "MY ROOM"}</span>
     </div>
   );
 }
