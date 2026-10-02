@@ -264,11 +264,15 @@ function YouTubeEmbed({
     };
   }, [item.id, item.kind, onEnded]);
 
+  const mediaUrl = new URL(item.embedUrl);
+  if (!compact) mediaUrl.searchParams.set("autoplay", "1");
+  if (onEnded && item.kind !== "playlist") mediaUrl.searchParams.set("loop", "0");
+
   return (
     <iframe
       ref={iframeRef}
       className={`custom-media custom-media--youtube ${compact ? "is-compact" : ""}`}
-      src={item.embedUrl}
+      src={mediaUrl.toString()}
       title={`${roomName} · YouTube`}
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowFullScreen
