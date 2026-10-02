@@ -2577,7 +2577,7 @@
   --heat: 0;
   aspect-ratio: 1;
   border: 1px solid rgba(220, 237, 248, .055);
-  background: color-mix(in srgb, rgba(118, 209, 222, 1) calc(var(--heat) * 72%), rgba(220, 237, 248, .025));
+  background: rgba(118, 209, 222, calc(.035 + (var(--heat) * .72)));
 }
 
 .progress-v2__streak-copy {
@@ -2996,5 +2996,57 @@
   .progress-weekly__track i,
   .progress-v2__loading-line::after {
     animation: none !important;
+  }
+}
+
+
+.progress-detail__danger {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(220, 237, 248, .07);
+}
+
+.progress-detail__danger > span {
+  color: rgba(222, 237, 247, .26);
+  font-size: .5rem;
+}
+
+.progress-detail__danger button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(225, 105, 92, .18);
+  background: transparent;
+  color: rgba(235, 154, 143, .58);
+  font-size: .5rem;
+  cursor: pointer;
+}
+
+.progress-detail__danger button:hover:not(:disabled) {
+  border-color: rgba(225, 105, 92, .42);
+  color: #ef9c91;
+}
+
+.progress-detail__danger button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.progress-detail__danger small {
+  grid-column: 1 / -1;
+  color: rgba(235, 154, 143, .68);
+  font-size: .48rem;
+}
+
+@media (max-width: 560px) {
+  .progress-detail__danger {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-detail__danger button {
+    width: max-content;
   }
 }
