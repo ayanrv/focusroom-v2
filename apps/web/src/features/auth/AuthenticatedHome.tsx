@@ -11,29 +11,10 @@ import {
   parseCustomMedia,
   type CustomRoomConfig,
 } from "../custom-room/CustomRoomMedia";
+import { SessionCompletion } from "../focus/SessionCompletion";
+import { ProgressPanel, type ProgressResponse } from "../progress/ProgressPanel";
 import { useAuth } from "./AuthContext";
 import "./focus-app.css";
-
-type SessionRecord = {
-  id: string;
-  intention: string | null;
-  room: string;
-  plannedSeconds: number;
-  elapsedSeconds: number;
-  ambienceA: number;
-  ambienceB: number;
-  ambienceC: number;
-  startedAt: string;
-  endedAt: string;
-};
-
-type SessionsResponse = {
-  sessions: SessionRecord[];
-  summary: {
-    totalSessions: number;
-    totalSeconds: number;
-  };
-};
 
 type DashboardTab = "focus" | "sound" | "progress";
 type SetupStep = "goal" | "time" | "room";
@@ -68,6 +49,7 @@ type StoredSession = {
   room: Room;
   intention: string;
   plannedSeconds: number;
+  initialPlannedSeconds?: number;
   remainingSeconds: number;
   startedAt: string | null;
   deadline?: number | null;
@@ -77,6 +59,7 @@ type StoredSession = {
   controlC: number;
   customRoom?: CustomRoomConfig | null;
   customQueueIndex?: number;
+  completionPending?: boolean;
 };
 
 function resolveRoom(value: string | null): Room {
@@ -165,9 +148,15 @@ export function AuthenticatedHome() {
   const saved = savedRef.current;
   const savedCustomRoom = saved?.customRoom ? normalizeCustomRoom(saved.customRoom) : null;
   const initialRoom = saved?.room ?? resolveRoom(window.localStorage.getItem("focusroom-room"));
-  const initialDeadline =
+  const rawInitialDeadline =
     saved?.deadline ??
     (saved?.runningSince ? Date.now() + Math.max(0, saved.remainingSeconds) * 1000 : null);
+  const initialCompletionPending = Boolean(
+    saved?.completionPending ||
+    (saved?.startedAt && rawInitialDeadline && rawInitialDeadline <= Date.now()),
+  );
+  const initialDeadline =
+    rawInitialDeadline && rawInitialDeadline > Date.now() ? rawInitialDeadline : null;
 
   const [tab, setTab] = useState<DashboardTab>("focus");
   const [setupStep, setSetupStep] = useState<SetupStep>("goal");
@@ -178,9 +167,16 @@ export function AuthenticatedHome() {
   const [room, setRoom] = useState<Room>(initialRoom);
   const [intention, setIntention] = useState(saved?.intention ?? "");
   const [plannedSeconds, setPlannedSeconds] = useState(saved?.plannedSeconds ?? 25 * 60);
+  const [initialPlannedSeconds, setInitialPlannedSeconds] = useState(
+    saved?.initialPlannedSeconds ?? saved?.plannedSeconds ?? 25 * 60,
+  );
   const [remainingSeconds, setRemainingSeconds] = useState(saved?.remainingSeconds ?? 25 * 60);
   const [startedAt, setStartedAt] = useState<string | null>(saved?.startedAt ?? null);
   const [deadline, setDeadline] = useState<number | null>(initialDeadline);
+  const [completionPending, setCompletionPending] = useState(initialCompletionPending);
+  const [customMinutes, setCustomMinutes] = useState(
+    Math.max(1, Math.round((saved?.plannedSeconds ?? 25 * 60) / 60)),
+  );
   const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(savedCustomRoom);
 
   const [customDraft, setCustomDraft] = useState<CustomRoomConfig>(() => savedCustomRoom ?? readCustomRoom());
@@ -207,9 +203,10 @@ export function AuthenticatedHome() {
   });
   const [muted, setMuted] = useState(false);
 
-  const [history, setHistory] = useState<SessionRecord[]>([]);
-  const [summary, setSummary] = useState({ totalSessions: 0, totalSeconds: 0 });
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [progressData, setProgressData] = useState<ProgressResponse | null>(null);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [progressError, setProgressError] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const running = deadline !== null;
@@ -229,19 +226,24 @@ export function AuthenticatedHome() {
     { key: "c", label: layerMeta.c.label, value: controlC, setter: setControlC },
   ];
 
-  const refreshHistory = async () => {
+  const refreshProgress = async () => {
+    setProgressLoading(true);
     try {
-      const response = await apiFetch<SessionsResponse>("/sessions");
-      setHistory(response.sessions);
-      setSummary(response.summary);
-      setHistoryError(null);
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      const response = await apiFetch<ProgressResponse>(
+        `/sessions/progress?timeZone=${encodeURIComponent(timeZone)}`,
+      );
+      setProgressData(response);
+      setProgressError(null);
     } catch (error) {
-      setHistoryError(error instanceof Error ? error.message : "Could not load session history.");
+      setProgressError(error instanceof Error ? error.message : "Could not load progress.");
+    } finally {
+      setProgressLoading(false);
     }
   };
 
   useEffect(() => {
-    void refreshHistory();
+    void refreshProgress();
     return () => focusAudioEngine.destroy();
   }, []);
 
@@ -272,6 +274,7 @@ export function AuthenticatedHome() {
       room,
       intention,
       plannedSeconds,
+      initialPlannedSeconds,
       remainingSeconds,
       startedAt,
       deadline,
@@ -280,12 +283,14 @@ export function AuthenticatedHome() {
       controlC,
       customRoom: activeCustomRoom,
       customQueueIndex,
+      completionPending,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
     room,
     intention,
     plannedSeconds,
+    initialPlannedSeconds,
     remainingSeconds,
     startedAt,
     deadline,
@@ -294,6 +299,7 @@ export function AuthenticatedHome() {
     controlC,
     activeCustomRoom,
     customQueueIndex,
+    completionPending,
   ]);
 
   useEffect(() => {
@@ -302,11 +308,14 @@ export function AuthenticatedHome() {
     const tick = () => {
       const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemainingSeconds(next);
-      if (next <= 0) setDeadline(null);
+      if (next <= 0) {
+        setDeadline(null);
+        setCompletionPending(true);
+      }
     };
 
     tick();
-    const interval = window.setInterval(tick, 250);
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, [deadline]);
 
@@ -319,15 +328,22 @@ export function AuthenticatedHome() {
       focusAudioEngine.setMuted(muted);
       setSoundEnabled(true);
     } catch {
-      setHistoryError("Your browser could not start audio playback.");
+      setWorkspaceError("Your browser could not start audio playback.");
     }
   };
 
   const chooseDuration = (minutes: number) => {
     if (active) return;
-    const seconds = minutes * 60;
+    const safeMinutes = Math.max(1, Math.min(720, Math.round(minutes)));
+    const seconds = safeMinutes * 60;
+    setCustomMinutes(safeMinutes);
     setPlannedSeconds(seconds);
+    setInitialPlannedSeconds(seconds);
     setRemainingSeconds(seconds);
+  };
+
+  const applyCustomDuration = () => {
+    chooseDuration(customMinutes);
   };
 
   const beginSession = async (selectedRoom: Room) => {
@@ -336,7 +352,9 @@ export function AuthenticatedHome() {
     setCustomBuilder(false);
     const now = new Date().toISOString();
     setStartedAt(now);
+    setInitialPlannedSeconds(plannedSeconds);
     setRemainingSeconds(plannedSeconds);
+    setCompletionPending(false);
     setDeadline(Date.now() + plannedSeconds * 1000);
     setInFocusView(true);
 
@@ -372,12 +390,16 @@ export function AuthenticatedHome() {
 
     const now = new Date().toISOString();
     setStartedAt(now);
+    setInitialPlannedSeconds(plannedSeconds);
     setRemainingSeconds(plannedSeconds);
+    setCompletionPending(false);
     setDeadline(Date.now() + plannedSeconds * 1000);
     setInFocusView(true);
   };
 
   const pauseOrResume = () => {
+    if (completionPending) return;
+
     if (deadline !== null) {
       const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemainingSeconds(next);
@@ -389,7 +411,7 @@ export function AuthenticatedHome() {
     setDeadline(Date.now() + remainingSeconds * 1000);
   };
 
-  const endAndSave = async () => {
+  const endAndSave = async (completed = false) => {
     if (!startedAt || saving) return;
 
     if (deadline !== null) {
@@ -410,7 +432,9 @@ export function AuthenticatedHome() {
           intention,
           room: activeCustomRoom ? `custom:${activeCustomRoom.name}` : room,
           plannedSeconds,
+          initialPlannedSeconds,
           elapsedSeconds: elapsed,
+          completed,
           ambienceA: activeCustomRoom ? 0 : controlA,
           ambienceB: activeCustomRoom ? 0 : controlB,
           ambienceC: activeCustomRoom ? 0 : controlC,
@@ -420,19 +444,31 @@ export function AuthenticatedHome() {
       });
 
       setStartedAt(null);
+      setCompletionPending(false);
       setRemainingSeconds(plannedSeconds);
+      setInitialPlannedSeconds(plannedSeconds);
+      setIntention("");
       setActiveCustomRoom(null);
       setCustomQueueIndex(0);
       setCustomQueueOpen(false);
       setInFocusView(false);
       setSetupStep("goal");
       window.localStorage.removeItem(STORAGE_KEY);
-      await refreshHistory();
+      await refreshProgress();
     } catch (error) {
-      setHistoryError(error instanceof Error ? error.message : "Could not save the session.");
+      setWorkspaceError(error instanceof Error ? error.message : "Could not save the session.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const extendSession = (minutes: number) => {
+    if (!startedAt || minutes <= 0) return;
+    const extraSeconds = Math.round(minutes * 60);
+    setPlannedSeconds((current) => current + extraSeconds);
+    setRemainingSeconds(extraSeconds);
+    setCompletionPending(false);
+    setDeadline(Date.now() + extraSeconds * 1000);
   };
 
   const addCustomMedia = () => {
@@ -516,7 +552,6 @@ export function AuthenticatedHome() {
   const nextCustomMedia = () => goToCustomQueueItem(customQueueIndex + 1);
   const previousCustomMedia = () => goToCustomQueueItem(customQueueIndex - 1);
 
-  const totalHours = (summary.totalSeconds / 3600).toFixed(summary.totalSeconds >= 36000 ? 0 : 1);
   const backgroundRoom = previewRoom && previewRoom !== "custom" ? previewRoom : room;
   const showCustomBackdrop = customBuilder || previewRoom === "custom" || Boolean(activeCustomRoom);
   const customTheme = activeCustomRoom?.theme ?? customDraft.theme;
