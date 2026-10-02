@@ -531,6 +531,71 @@ export function AuthenticatedHome() {
         <main className={`focus-state focus-state--custom custom-shell--${activeCustomRoom.theme}`}>
           <CustomRoomBackdrop theme={activeCustomRoom.theme} roomName={activeCustomRoom.name} />
 
+          <div key="custom-media-session" className="custom-persistent-media custom-persistent-media--focus">
+            <div className="custom-focus__media-head">
+              <span>{currentCustomItem ? mediaItemLabel(currentCustomItem) : "Queue"}</span>
+              <small>{activeCustomRoom.queue.length} item{activeCustomRoom.queue.length === 1 ? "" : "s"}</small>
+            </div>
+
+            {currentCustomItem ? (
+              <CustomMediaEmbed
+                key={currentCustomItem.id}
+                item={currentCustomItem}
+                roomName={activeCustomRoom.name}
+                onEnded={activeCustomRoom.queue.length > 1 ? nextCustomMedia : undefined}
+              />
+            ) : null}
+
+            <div className="custom-transport">
+              <button type="button" onClick={previousCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Previous media">
+                ←
+              </button>
+              <span>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</span>
+              <button type="button" onClick={nextCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Next media">
+                →
+              </button>
+              <button className="custom-transport__queue" type="button" onClick={() => setCustomQueueOpen((value) => !value)}>
+                Queue
+              </button>
+            </div>
+
+            {customQueueOpen ? (
+              <div className="custom-focus-queue">
+                <div className="custom-focus-queue__list">
+                  {activeCustomRoom.queue.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={index === customQueueIndex ? "is-active" : ""}
+                      onClick={() => setCustomQueueIndex(index)}
+                    >
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <b>{mediaItemLabel(item)}</b>
+                    </button>
+                  ))}
+                </div>
+                <div className="custom-focus-queue__add">
+                  <input
+                    type="url"
+                    value={activeQueueInput}
+                    onChange={(event) => setActiveQueueInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && activeQueueInput.trim()) addActiveQueueItem();
+                    }}
+                    placeholder="Add another media link"
+                  />
+                  <button type="button" onClick={addActiveQueueItem} disabled={!activeQueueInput.trim()}>
+                    Add
+                  </button>
+                </div>
+                {customMediaError ? <small className="custom-focus-queue__error">{customMediaError}</small> : null}
+                <p className="custom-focus-queue__hint">
+                  YouTube videos and individual Spotify tracks can advance through the FocusRoom queue. Provider playlists and albums continue inside their own players. Apple Music standalone items use manual previous/next until a full MusicKit connection is added.
+                </p>
+              </div>
+            ) : null}
+          </div>
+
           <button className="focus-state__back" type="button" onClick={() => setInFocusView(false)}>
             ← Back
           </button>
@@ -563,70 +628,7 @@ export function AuthenticatedHome() {
               </div>
             </div>
 
-            <div className="custom-focus__media">
-              <div className="custom-focus__media-head">
-                <span>{currentCustomItem ? mediaItemLabel(currentCustomItem) : "Queue"}</span>
-                <small>{activeCustomRoom.queue.length} item{activeCustomRoom.queue.length === 1 ? "" : "s"}</small>
-              </div>
 
-              {currentCustomItem ? (
-                <CustomMediaEmbed
-                  key={currentCustomItem.id}
-                  item={currentCustomItem}
-                  roomName={activeCustomRoom.name}
-                  onEnded={activeCustomRoom.queue.length > 1 ? nextCustomMedia : undefined}
-                />
-              ) : null}
-
-              <div className="custom-transport">
-                <button type="button" onClick={previousCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Previous media">
-                  ←
-                </button>
-                <span>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</span>
-                <button type="button" onClick={nextCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Next media">
-                  →
-                </button>
-                <button className="custom-transport__queue" type="button" onClick={() => setCustomQueueOpen((value) => !value)}>
-                  Queue
-                </button>
-              </div>
-
-              {customQueueOpen ? (
-                <div className="custom-focus-queue">
-                  <div className="custom-focus-queue__list">
-                    {activeCustomRoom.queue.map((item, index) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={index === customQueueIndex ? "is-active" : ""}
-                        onClick={() => setCustomQueueIndex(index)}
-                      >
-                        <span>{String(index + 1).padStart(2, "0")}</span>
-                        <b>{mediaItemLabel(item)}</b>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="custom-focus-queue__add">
-                    <input
-                      type="url"
-                      value={activeQueueInput}
-                      onChange={(event) => setActiveQueueInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && activeQueueInput.trim()) addActiveQueueItem();
-                      }}
-                      placeholder="Add another media link"
-                    />
-                    <button type="button" onClick={addActiveQueueItem} disabled={!activeQueueInput.trim()}>
-                      Add
-                    </button>
-                  </div>
-                  {customMediaError ? <small className="custom-focus-queue__error">{customMediaError}</small> : null}
-                  <p className="custom-focus-queue__hint">
-                    YouTube videos advance automatically through this queue. Spotify and Apple Music playlists/albums continue inside their own players; for separate cross-provider items, use previous/next.
-                  </p>
-                </div>
-              ) : null}
-            </div>
           </section>
         </main>
       );
@@ -698,6 +700,27 @@ export function AuthenticatedHome() {
           rainIntensity={backgroundRoom === "rain-city" ? controlA / 100 : 0}
         />
       )}
+
+      {activeCustomRoom && currentCustomItem ? (
+        <div key="custom-media-session" className="custom-persistent-media custom-persistent-media--dock">
+          <div className="custom-focus__media-head">
+            <span>{mediaItemLabel(currentCustomItem)}</span>
+            <small>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</small>
+          </div>
+          <CustomMediaEmbed
+            key={currentCustomItem.id}
+            item={currentCustomItem}
+            roomName={activeCustomRoom.name}
+            onEnded={activeCustomRoom.queue.length > 1 ? nextCustomMedia : undefined}
+          />
+          <div className="custom-transport">
+            <button type="button" onClick={previousCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Previous media">←</button>
+            <span>{customQueueIndex + 1} / {activeCustomRoom.queue.length}</span>
+            <button type="button" onClick={nextCustomMedia} disabled={activeCustomRoom.queue.length < 2} aria-label="Next media">→</button>
+            <button className="custom-transport__queue" type="button" onClick={() => setInFocusView(true)}>Open room</button>
+          </div>
+        </div>
+      ) : null}
 
       <header className="focus-dashboard__topbar">
         <Link className="focus-dashboard__brand" to="/">
@@ -1020,17 +1043,20 @@ export function AuthenticatedHome() {
             <section className="dashboard-panel dashboard-panel--sound custom-sound-panel">
               <p className="focus-app__eyebrow">SOUND</p>
               <h1>{activeCustomRoom.name}</h1>
-              <p>Your room has {activeCustomRoom.queue.length} queued source{activeCustomRoom.queue.length === 1 ? "" : "s"}.</p>
-              {currentCustomItem ? (
-                <div className="custom-sound-panel__player">
-                  <CustomMediaEmbed
-                    key={currentCustomItem.id}
-                    item={currentCustomItem}
-                    roomName={activeCustomRoom.name}
-                    compact
-                  />
-                </div>
-              ) : null}
+              <p>Your room has {activeCustomRoom.queue.length} queued source{activeCustomRoom.queue.length === 1 ? "" : "s"}. Playback stays alive in the media dock while you move around the workspace.</p>
+              <div className="custom-sound-panel__queue">
+                {activeCustomRoom.queue.map((item, index) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={index === customQueueIndex ? "is-active" : ""}
+                    onClick={() => setCustomQueueIndex(index)}
+                  >
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <b>{mediaItemLabel(item)}</b>
+                  </button>
+                ))}
+              </div>
             </section>
           ) : (
             <section className="dashboard-panel dashboard-panel--sound">
