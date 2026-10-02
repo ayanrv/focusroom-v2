@@ -89,6 +89,7 @@ export function ProgressPanel({
 }) {
   const [selected, setSelected] = useState<ProgressSession | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const maxWeekly = useMemo(
     () => Math.max(1, ...(data?.weekly.map((item) => item.seconds) ?? [1])),
@@ -340,9 +341,12 @@ export function ProgressPanel({
                 onClick={async () => {
                   if (!window.confirm("Delete this focus session from your progress history?")) return;
                   setDeleting(true);
+                  setDeleteError(null);
                   try {
                     await onDeleteSession(selected.id);
                     setSelected(null);
+                  } catch (error) {
+                    setDeleteError(error instanceof Error ? error.message : "Could not delete this session.");
                   } finally {
                     setDeleting(false);
                   }
@@ -350,6 +354,7 @@ export function ProgressPanel({
               >
                 {deleting ? "Deleting…" : "Delete session"}
               </button>
+              {deleteError ? <small>{deleteError}</small> : null}
             </div>
           </article>
         </div>
