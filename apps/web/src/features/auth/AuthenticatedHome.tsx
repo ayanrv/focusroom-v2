@@ -138,7 +138,8 @@ export function AuthenticatedHome() {
     (saved?.runningSince ? Date.now() + Math.max(0, saved.remainingSeconds) * 1000 : null);
   const initialCompletionPending = Boolean(
     saved?.completionPending ||
-    (saved?.startedAt && rawInitialDeadline && rawInitialDeadline <= Date.now()),
+    (saved?.startedAt && rawInitialDeadline && rawInitialDeadline <= Date.now()) ||
+    (saved?.startedAt && !rawInitialDeadline && saved.remainingSeconds <= 0),
   );
   const initialDeadline =
     rawInitialDeadline && rawInitialDeadline > Date.now() ? rawInitialDeadline : null;
@@ -155,7 +156,9 @@ export function AuthenticatedHome() {
   const [initialPlannedSeconds, setInitialPlannedSeconds] = useState(
     saved?.initialPlannedSeconds ?? saved?.plannedSeconds ?? 25 * 60,
   );
-  const [remainingSeconds, setRemainingSeconds] = useState(saved?.remainingSeconds ?? 25 * 60);
+  const [remainingSeconds, setRemainingSeconds] = useState(
+    initialCompletionPending ? 0 : (saved?.remainingSeconds ?? 25 * 60),
+  );
   const [startedAt, setStartedAt] = useState<string | null>(saved?.startedAt ?? null);
   const [deadline, setDeadline] = useState<number | null>(initialDeadline);
   const [completionPending, setCompletionPending] = useState(initialCompletionPending);
@@ -255,6 +258,11 @@ export function AuthenticatedHome() {
   }, [customDraft]);
 
   useEffect(() => {
+    if (!startedAt) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
     const snapshot: StoredSession = {
       room,
       intention,
@@ -411,6 +419,7 @@ export function AuthenticatedHome() {
     const currentRemaining =
       deadline !== null ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : remainingSeconds;
     const elapsed = Math.max(1, plannedSeconds - currentRemaining);
+    const completedSession = completed || currentRemaining <= 0;
 
     try {
       await apiFetch("/sessions", {
@@ -421,7 +430,7 @@ export function AuthenticatedHome() {
           plannedSeconds,
           initialPlannedSeconds,
           elapsedSeconds: elapsed,
-          completed,
+          completed: completedSession,
           ambienceA: activeCustomRoom ? 0 : controlA,
           ambienceB: activeCustomRoom ? 0 : controlB,
           ambienceC: activeCustomRoom ? 0 : controlC,
@@ -815,6 +824,7 @@ export function AuthenticatedHome() {
             onClick={() => {
               setCustomBuilder(false);
               setTab("progress");
+              void refreshProgress();
             }}
           >
             Progress
@@ -838,7 +848,9 @@ export function AuthenticatedHome() {
                 <span className="focus-setup__active-space">
                   {activeCustomRoom ? activeCustomRoom.name : roomNames[room]}
                 </span>
-                <button type="button" onClick={() => setInFocusView(true)}>Return to focus</button>
+                <button type="button" onClick={() => setInFocusView(true)}>
+                  {completionPending ? "Review completed session" : "Return to focus"}
+                </button>
               </div>
             ) : customBuilder ? (
               <div className="custom-builder custom-builder--live">
@@ -1065,7 +1077,7 @@ export function AuthenticatedHome() {
                     </div>
 
                     <button className="focus-setup__continue" type="button" onClick={() => setSetupStep("room")}>
-                      Choose a space · {formatClock(plannedSeconds).replace(":00", "")}
+                      Choose a space · {Math.round(plannedSeconds / 60)} min
                     </button>
                   </div>
                 ) : null}
