@@ -17,8 +17,9 @@ model Profile {
 }
 
 model FocusSession {
-  id             String   @id @default(cuid())
-  profileId      String
+  id              String   @id @default(cuid())
+  clientSessionId String?  @unique
+  profileId       String
   intention      String?
   room           String
   plannedSeconds        Int
