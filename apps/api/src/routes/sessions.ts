@@ -8,6 +8,7 @@ export const sessionRoutes = new Hono<AppEnv>();
 sessionRoutes.use("*", requireAuth);
 
 const MAX_SESSION_SECONDS = 24 * 60 * 60;
+const STREAK_MIN_SECONDS = 60;
 
 function clamp(value: unknown, fallback: number) {
   const number = Number(value);
@@ -103,7 +104,7 @@ sessionRoutes.get("/progress", async (c) => {
   }
 
   const activeDays = [...dailySeconds.keys()]
-    .filter((key) => (dailySeconds.get(key) ?? 0) > 0)
+    .filter((key) => (dailySeconds.get(key) ?? 0) >= STREAK_MIN_SECONDS)
     .sort();
 
   let bestStreak = 0;
@@ -196,6 +197,24 @@ sessionRoutes.get("/", async (c) => {
       totalSeconds: totals._sum.elapsedSeconds ?? 0,
     },
   });
+});
+
+
+sessionRoutes.delete("/:id", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+
+  const existing = await prisma.focusSession.findFirst({
+    where: { id, profileId: user.id },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    return c.json({ error: "Focus session not found." }, 404);
+  }
+
+  await prisma.focusSession.delete({ where: { id } });
+  return c.body(null, 204);
 });
 
 sessionRoutes.post("/", async (c) => {
