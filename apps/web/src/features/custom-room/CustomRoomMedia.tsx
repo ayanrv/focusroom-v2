@@ -235,9 +235,14 @@ function YouTubeEmbed({
   onEnded?: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const onEndedRef = useRef(onEnded);
 
   useEffect(() => {
-    if (!onEnded || item.kind === "playlist") return;
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
+
+  useEffect(() => {
+    if (!onEndedRef.current || item.kind === "playlist") return;
     let player: YouTubePlayer | null = null;
     let cancelled = false;
 
@@ -248,7 +253,7 @@ function YouTubeEmbed({
         events: {
           onStateChange: (event) => {
             const ended = window.YT?.PlayerState?.ENDED ?? 0;
-            if (event.data === ended) onEnded();
+            if (event.data === ended) onEndedRef.current?.();
           },
         },
       });
@@ -262,7 +267,7 @@ function YouTubeEmbed({
         // The provider may already have disposed the player.
       }
     };
-  }, [item.id, item.kind, onEnded]);
+  }, [item.id, item.kind]);
 
   const mediaUrl = new URL(item.embedUrl);
   if (!compact) mediaUrl.searchParams.set("autoplay", "1");
