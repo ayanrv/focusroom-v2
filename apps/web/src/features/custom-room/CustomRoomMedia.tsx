@@ -29,9 +29,35 @@ export const customRoomThemes: Array<{
 ];
 
 let youtubeReadyPromise: Promise<void> | null = null;
+let spotifyReadyPromise: Promise<SpotifyIFrameApi> | null = null;
+let spotifyApi: SpotifyIFrameApi | null = null;
 
 type YouTubePlayer = {
   destroy: () => void;
+};
+
+type SpotifyPlaybackUpdate = {
+  data: {
+    playingURI: string;
+    isPaused: boolean;
+    isBuffering: boolean;
+    duration: number;
+    position: number;
+  };
+};
+
+type SpotifyController = {
+  addListener: (event: "playback_update", callback: (event: SpotifyPlaybackUpdate) => void) => void;
+  destroy: () => void;
+  play?: () => void;
+};
+
+type SpotifyIFrameApi = {
+  createController: (
+    element: HTMLElement,
+    options: { url: string },
+    callback: (controller: SpotifyController) => void,
+  ) => void;
 };
 
 type YouTubePlayerApi = {
@@ -52,6 +78,7 @@ declare global {
   interface Window {
     YT?: YouTubePlayerApi;
     onYouTubeIframeAPIReady?: () => void;
+    onSpotifyIframeApiReady?: (api: SpotifyIFrameApi) => void;
   }
 }
 
@@ -75,6 +102,29 @@ function loadYouTubeApi() {
   });
 
   return youtubeReadyPromise;
+}
+
+function loadSpotifyApi() {
+  if (spotifyApi) return Promise.resolve(spotifyApi);
+  if (spotifyReadyPromise) return spotifyReadyPromise;
+
+  spotifyReadyPromise = new Promise<SpotifyIFrameApi>((resolve) => {
+    const previous = window.onSpotifyIframeApiReady;
+    window.onSpotifyIframeApiReady = (api) => {
+      spotifyApi = api;
+      previous?.(api);
+      resolve(api);
+    };
+
+    if (!document.querySelector('script[src="https://open.spotify.com/embed/iframe-api/v1"]')) {
+      const script = document.createElement("script");
+      script.src = "https://open.spotify.com/embed/iframe-api/v1";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  });
+
+  return spotifyReadyPromise;
 }
 
 function makeId() {
@@ -285,6 +335,99 @@ function YouTubeEmbed({
   );
 }
 
+
+function SpotifyEmbed({
+  item,
+  roomName,
+  compact,
+  onEnded,
+}: {
+  item: CustomMediaItem;
+  roomName: string;
+  compact: boolean;
+  onEnded?: () => void;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const onEndedRef = useRef(onEnded);
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
+
+  const canAutoAdvance =
+    Boolean(onEnded) && (item.kind === "track" || item.kind === "episode");
+
+  useEffect(() => {
+    if (!canAutoAdvance || !hostRef.current) return;
+
+    let controller: SpotifyController | null = null;
+    let cancelled = false;
+    let completed = false;
+
+    void loadSpotifyApi().then((api) => {
+      if (cancelled || !hostRef.current) return;
+
+      api.createController(
+        hostRef.current,
+        { url: item.sourceUrl },
+        (nextController) => {
+          if (cancelled) {
+            nextController.destroy();
+            return;
+          }
+
+          controller = nextController;
+          nextController.addListener("playback_update", (event) => {
+            const { duration, position, isPaused, isBuffering } = event.data;
+
+            if (duration > 0 && position < duration - 1800) {
+              completed = false;
+            }
+
+            if (
+              !completed &&
+              duration > 0 &&
+              position >= duration - 650 &&
+              isPaused &&
+              !isBuffering
+            ) {
+              completed = true;
+              onEndedRef.current?.();
+            }
+          });
+
+          if (!compact) nextController.play?.();
+        },
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      controller?.destroy();
+    };
+  }, [canAutoAdvance, compact, item.id, item.sourceUrl]);
+
+  if (!canAutoAdvance) {
+    return (
+      <iframe
+        className={`custom-media custom-media--spotify ${compact ? "is-compact" : ""}`}
+        src={item.embedUrl}
+        title={`${roomName} · Spotify`}
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        loading="lazy"
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={hostRef}
+      className={`custom-media custom-media--spotify custom-media--spotify-api ${compact ? "is-compact" : ""}`}
+      aria-label={`${roomName} · Spotify`}
+    />
+  );
+}
+
 export function CustomMediaEmbed({
   item,
   roomName,
@@ -309,12 +452,11 @@ export function CustomMediaEmbed({
 
   if (item.provider === "spotify") {
     return (
-      <iframe
-        className={`custom-media custom-media--spotify ${compact ? "is-compact" : ""}`}
-        src={item.embedUrl}
-        title={`${roomName} · Spotify`}
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        loading="lazy"
+      <SpotifyEmbed
+        item={item}
+        roomName={roomName}
+        compact={compact}
+        onEnded={onEnded}
       />
     );
   }
