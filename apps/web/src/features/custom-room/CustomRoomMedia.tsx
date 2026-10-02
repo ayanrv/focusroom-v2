@@ -55,7 +55,7 @@ type SpotifyController = {
 type SpotifyIFrameApi = {
   createController: (
     element: HTMLElement,
-    options: { url: string },
+    options: { url: string; width?: string | number; height?: string | number },
     callback: (controller: SpotifyController) => void,
   ) => void;
 };
@@ -369,7 +369,7 @@ function SpotifyEmbed({
 
       api.createController(
         hostRef.current,
-        { url: item.sourceUrl },
+        { url: item.sourceUrl, width: "100%", height: 352 },
         (nextController) => {
           if (cancelled) {
             nextController.destroy();
