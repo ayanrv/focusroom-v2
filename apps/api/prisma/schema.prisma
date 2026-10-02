@@ -21,9 +21,11 @@ model FocusSession {
   profileId      String
   intention      String?
   room           String
-  plannedSeconds Int
-  elapsedSeconds Int
-  ambienceA      Int      @default(70)
+  plannedSeconds        Int
+  initialPlannedSeconds Int?
+  elapsedSeconds        Int
+  completed             Boolean?
+  ambienceA             Int      @default(70)
   ambienceB      Int      @default(45)
   ambienceC      Int      @default(55)
   startedAt      DateTime
