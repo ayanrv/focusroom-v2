@@ -1453,3 +1453,115 @@
     min-height: 50px;
   }
 }
+
+
+/* Focus session visual cleanup */
+
+.depth-plane {
+  display: none !important;
+}
+
+/* Cozy Café: keep it alive with cheap transform/opacity motion only. */
+.ambient-world--cozy-cafe .room-motion--cafe {
+  animation: cafe-ambient-shift 8s ease-in-out infinite alternate !important;
+  transform-origin: center;
+}
+
+.cafe-lamp::after {
+  animation: cafe-lamp-pulse 4.8s ease-in-out infinite alternate;
+}
+
+.cafe-lamp--two::after {
+  animation-delay: -1.7s;
+}
+
+.cafe-lamp--three::after {
+  animation-delay: -3.1s;
+}
+
+.cafe-steam {
+  animation: cafe-steam-rise 4.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.cafe-steam--two {
+  animation-delay: -2.2s;
+}
+
+.cafe-cup {
+  animation: cafe-cup-breathe 6.5s ease-in-out infinite alternate;
+}
+
+@keyframes cafe-ambient-shift {
+  from {
+    transform: translate3d(-4px, 2px, 0) scale(1);
+    opacity: .84;
+  }
+  to {
+    transform: translate3d(6px, -3px, 0) scale(1.018);
+    opacity: 1;
+  }
+}
+
+@keyframes cafe-lamp-pulse {
+  from {
+    opacity: .62;
+    transform: translateX(-50%) scale(.96);
+  }
+  to {
+    opacity: .94;
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+
+@keyframes cafe-steam-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) rotate(7deg) scaleY(.82);
+  }
+  25% {
+    opacity: .36;
+  }
+  70% {
+    opacity: .18;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(8px, -22px, 0) rotate(14deg) scaleY(1.1);
+  }
+}
+
+.cafe-steam--two {
+  animation-name: cafe-steam-rise-two;
+}
+
+@keyframes cafe-steam-rise-two {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0) rotate(-9deg) scaleY(.84);
+  }
+  30% {
+    opacity: .28;
+  }
+  72% {
+    opacity: .14;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-7px, -18px, 0) rotate(-14deg) scaleY(1.08);
+  }
+}
+
+@keyframes cafe-cup-breathe {
+  from { transform: translateY(0); }
+  to { transform: translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-world--cozy-cafe .room-motion--cafe,
+  .cafe-lamp::after,
+  .cafe-steam,
+  .cafe-cup {
+    animation: none !important;
+  }
+}
