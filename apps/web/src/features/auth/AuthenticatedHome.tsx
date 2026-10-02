@@ -624,7 +624,7 @@ export function AuthenticatedHome() {
 
             {controls.map((control) => (
               <label className="dashboard-sound-row" key={control.key}>
-                <span>{control.label}<small>{layerMeta[control.key].kind === "procedural" ? "generated" : "audio file"}</small></span>
+                <span>{control.label}<small>audio file</small></span>
                 <input
                   type="range"
                   min="0"
