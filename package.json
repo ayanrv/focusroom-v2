@@ -7,6 +7,9 @@
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace=@focusroom/web",
-    "dev:api": "npm run dev --workspace=@focusroom/api"
+    "dev:api": "npm run dev --workspace=@focusroom/api",
+    "build": "npm run build --workspace=@focusroom/web",
+    "typecheck": "npm run typecheck --workspace=@focusroom/api && npm run typecheck --workspace=@focusroom/web",
+    "lint": "npm run lint --workspace=@focusroom/web"
   }
 }
