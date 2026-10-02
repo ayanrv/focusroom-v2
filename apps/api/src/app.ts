@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { env } from "./config/env";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
+import { sessionRoutes } from "./routes/sessions";
 import type { AppEnv } from "./types/app";
 
 export const app = new Hono<AppEnv>();
@@ -18,6 +19,7 @@ app.use(
 
 app.route("/health", healthRoutes);
 app.route("/me", meRoutes);
+app.route("/sessions", sessionRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
