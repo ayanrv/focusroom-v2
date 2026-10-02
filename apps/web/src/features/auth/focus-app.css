@@ -1647,3 +1647,348 @@
     animation: none !important;
   }
 }
+
+
+/* Custom media queue + transport */
+
+.custom-field--queue-add > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.custom-field--queue-add button,
+.custom-focus-queue__add button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--custom-line);
+  background: color-mix(in srgb, var(--custom-accent) 7%, transparent);
+  color: var(--custom-text);
+  font-size: .55rem;
+  cursor: pointer;
+}
+
+.custom-field--queue-add button:disabled,
+.custom-focus-queue__add button:disabled {
+  cursor: default;
+  opacity: .28;
+}
+
+.custom-queue-editor {
+  border-top: 1px solid var(--custom-line);
+  border-bottom: 1px solid var(--custom-line);
+}
+
+.custom-queue-editor__head {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--custom-muted);
+  font-size: .47rem;
+  letter-spacing: .12em;
+}
+
+.custom-queue-editor__head b {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.custom-queue-editor > p {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--custom-muted);
+  font-size: .56rem;
+}
+
+.custom-queue-editor__list {
+  display: grid;
+}
+
+.custom-queue-editor__list > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-top: 1px solid color-mix(in srgb, var(--custom-line) 72%, transparent);
+  transition: background 160ms ease;
+}
+
+.custom-queue-editor__list > div.is-active {
+  background: color-mix(in srgb, var(--custom-accent) 6%, transparent);
+}
+
+.custom-queue-editor__list > div > button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--custom-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.custom-queue-editor__list > div > button span {
+  color: var(--custom-muted);
+  font-family: var(--mono);
+  font-size: .46rem;
+}
+
+.custom-queue-editor__list > div > button b {
+  overflow: hidden;
+  font-size: .58rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-queue-editor__list > div > div {
+  display: flex;
+  gap: 2px;
+}
+
+.custom-queue-editor__list > div > div button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--custom-muted);
+  cursor: pointer;
+}
+
+.custom-queue-editor__list > div > div button:hover:not(:disabled) {
+  color: var(--custom-text);
+}
+
+.custom-queue-editor__list > div > div button:disabled {
+  opacity: .18;
+  cursor: default;
+}
+
+.custom-transport {
+  display: grid;
+  grid-template-columns: 38px auto 38px 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 4px;
+  border-top: 1px solid var(--custom-line);
+}
+
+.custom-transport button {
+  min-height: 34px;
+  border: 1px solid var(--custom-line);
+  background: transparent;
+  color: color-mix(in srgb, var(--custom-text) 66%, transparent);
+  cursor: pointer;
+}
+
+.custom-transport button:hover:not(:disabled) {
+  color: var(--custom-text);
+  border-color: color-mix(in srgb, var(--custom-accent) 44%, transparent);
+}
+
+.custom-transport button:disabled {
+  opacity: .24;
+  cursor: default;
+}
+
+.custom-transport > span {
+  min-width: 48px;
+  color: var(--custom-muted);
+  font-family: var(--mono);
+  font-size: .5rem;
+  text-align: center;
+}
+
+.custom-transport__queue {
+  justify-self: end;
+  min-width: 72px;
+  padding-inline: 11px;
+  font-size: .52rem;
+}
+
+.custom-focus-queue {
+  border-top: 1px solid var(--custom-line);
+  padding: 10px 4px 14px;
+}
+
+.custom-focus-queue__list {
+  display: grid;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.custom-focus-queue__list button {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 9px;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--custom-line) 64%, transparent);
+  background: transparent;
+  color: var(--custom-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.custom-focus-queue__list button.is-active,
+.custom-focus-queue__list button:hover {
+  color: var(--custom-text);
+}
+
+.custom-focus-queue__list button span {
+  font-family: var(--mono);
+  font-size: .45rem;
+}
+
+.custom-focus-queue__list button b {
+  font-size: .54rem;
+  font-weight: 500;
+}
+
+.custom-focus-queue__add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.custom-focus-queue__add input {
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  border-bottom: 1px solid var(--custom-line);
+  outline: none;
+  background: transparent;
+  color: var(--custom-text);
+  font-size: .62rem;
+}
+
+.custom-focus-queue__add input::placeholder {
+  color: color-mix(in srgb, var(--custom-text) 24%, transparent);
+}
+
+.custom-focus-queue__error {
+  display: block;
+  margin-top: 8px;
+  color: color-mix(in srgb, #d65d50 78%, var(--custom-text));
+  font-size: .48rem;
+}
+
+.custom-focus-queue__hint {
+  margin: 10px 0 0;
+  color: color-mix(in srgb, var(--custom-text) 28%, transparent);
+  font-size: .46rem;
+  line-height: 1.55;
+}
+
+.custom-room-backdrop > span {
+  max-width: 74vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+/* Paper needs real dark-interface contrast instead of inherited light-room colors. */
+
+.custom-shell--paper,
+.custom-shell--paper .custom-builder--live,
+.custom-shell--paper .custom-focus,
+.custom-shell--paper .custom-sound-panel {
+  color: #171713;
+}
+
+.custom-shell--paper .custom-builder__kicker,
+.custom-shell--paper .custom-builder__intro,
+.custom-shell--paper .custom-field > span,
+.custom-shell--paper .custom-field small,
+.custom-shell--paper .custom-theme-picker > span,
+.custom-shell--paper .custom-theme-picker small,
+.custom-shell--paper .custom-builder__meta,
+.custom-shell--paper .custom-builder__preview-head,
+.custom-shell--paper .custom-focus__heading > span,
+.custom-shell--paper .custom-focus__media-head,
+.custom-shell--paper .custom-focus__media-head small,
+.custom-shell--paper .custom-focus-queue__hint,
+.custom-shell--paper .custom-focus-queue__list button,
+.custom-shell--paper .focus-setup__active-space {
+  color: rgba(23, 23, 19, .54);
+}
+
+.custom-shell--paper .custom-builder--live h1,
+.custom-shell--paper .custom-field input,
+.custom-shell--paper .custom-field textarea,
+.custom-shell--paper .custom-theme-picker button,
+.custom-shell--paper .custom-builder__preview-head b,
+.custom-shell--paper .custom-media-placeholder span,
+.custom-shell--paper .custom-focus__heading p,
+.custom-shell--paper .custom-focus-queue__list button.is-active,
+.custom-shell--paper .custom-focus-queue__list button:hover,
+.custom-shell--paper .custom-focus-queue__add input,
+.custom-shell--paper .custom-queue-editor__list > div > button,
+.custom-shell--paper .custom-queue-editor__list > div > div button:hover:not(:disabled) {
+  color: #171713;
+}
+
+.custom-shell--paper .custom-field input::placeholder,
+.custom-shell--paper .custom-field textarea::placeholder,
+.custom-shell--paper .custom-focus-queue__add input::placeholder,
+.custom-shell--paper .custom-media-placeholder,
+.custom-shell--paper .custom-queue-editor__list > div > button span,
+.custom-shell--paper .custom-transport > span {
+  color: rgba(23, 23, 19, .34);
+}
+
+.custom-shell--paper .custom-builder__preview,
+.custom-shell--paper .custom-focus__media,
+.custom-shell--paper .custom-sound-panel__player {
+  background: rgba(239, 232, 215, .34);
+}
+
+.custom-shell--paper .custom-theme-picker button {
+  background: rgba(224, 215, 196, .55);
+}
+
+.custom-shell--paper .custom-field--queue-add button,
+.custom-shell--paper .custom-focus-queue__add button,
+.custom-shell--paper .custom-transport button,
+.custom-shell--paper .focus-state__actions button {
+  color: #171713;
+  background: rgba(239, 232, 215, .38);
+  border-color: rgba(23, 23, 19, .16);
+}
+
+.custom-shell--paper .custom-room-backdrop > span {
+  color: rgba(23, 23, 19, .055);
+}
+
+@media (max-width: 560px) {
+  .custom-field--queue-add > div,
+  .custom-focus-queue__add {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-field--queue-add button,
+  .custom-focus-queue__add button {
+    width: 100%;
+  }
+
+  .custom-transport {
+    grid-template-columns: 38px auto 38px;
+  }
+
+  .custom-transport__queue {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+}
