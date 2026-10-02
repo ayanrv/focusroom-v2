@@ -3,6 +3,14 @@ import { Link } from "react-router-dom";
 import { AtmosphereLayer, FocusMark, type Room } from "../../components/AtmosphereLayer";
 import { apiFetch } from "../../lib/api";
 import { focusAudioEngine, roomAudioConfig, type LayerKey } from "../audio/FocusAudioEngine";
+import {
+  CustomMediaEmbed,
+  CustomRoomBackdrop,
+  customRoomThemes,
+  parseCustomMedia,
+  providerLabel,
+  type CustomRoomConfig,
+} from "../custom-room/CustomRoomMedia";
 import { useAuth } from "./AuthContext";
 import "./focus-app.css";
 
@@ -27,7 +35,7 @@ type SessionsResponse = {
   };
 };
 
-type DashboardTab = "focus" | "space" | "sound" | "progress";
+type DashboardTab = "focus" | "sound" | "progress";
 type SetupStep = "goal" | "time" | "room";
 
 const roomNames: Record<Room, string> = {
@@ -48,6 +56,15 @@ const rooms = Object.keys(roomNames) as Room[];
 
 const STORAGE_KEY = "focusroom-active-session";
 const AUDIO_SETTINGS_KEY = "focusroom-audio-settings";
+const CUSTOM_ROOM_KEY = "focusroom-custom-room";
+
+const defaultCustomRoom: CustomRoomConfig = {
+  name: "My Room",
+  provider: "youtube",
+  sourceUrl: "",
+  embedUrl: "",
+  theme: "ember",
+};
 
 type StoredSession = {
   room: Room;
@@ -55,10 +72,12 @@ type StoredSession = {
   plannedSeconds: number;
   remainingSeconds: number;
   startedAt: string | null;
-  runningSince: number | null;
+  deadline?: number | null;
+  runningSince?: number | null;
   controlA: number;
   controlB: number;
   controlC: number;
+  customRoom?: CustomRoomConfig | null;
 };
 
 function resolveRoom(value: string | null): Room {
@@ -66,6 +85,21 @@ function resolveRoom(value: string | null): Room {
     return value;
   }
   return "rain-city";
+}
+
+function readCustomRoom() {
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_ROOM_KEY);
+    if (!raw) return defaultCustomRoom;
+    const parsed = JSON.parse(raw) as Partial<CustomRoomConfig>;
+    return {
+      ...defaultCustomRoom,
+      ...parsed,
+      name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.slice(0, 28) : defaultCustomRoom.name,
+    };
+  } catch {
+    return defaultCustomRoom;
+  }
 }
 
 function formatClock(seconds: number) {
@@ -84,18 +118,10 @@ function formatDuration(seconds: number) {
 }
 
 function displayRoom(value: string) {
-  return roomNames[resolveRoom(value)] ?? value;
-}
-
-function CustomRoomBackdrop() {
-  return (
-    <div className="custom-room-backdrop" aria-hidden="true">
-      <i className="custom-room-backdrop__orb custom-room-backdrop__orb--one" />
-      <i className="custom-room-backdrop__orb custom-room-backdrop__orb--two" />
-      <i className="custom-room-backdrop__line" />
-      <span>YOUR SPACE</span>
-    </div>
-  );
+  if (value.startsWith("custom:")) {
+    return value.slice("custom:".length) || "Custom Room";
+  }
+  return roomNames[resolveRoom(value)];
 }
 
 export function AuthenticatedHome() {
@@ -113,6 +139,9 @@ export function AuthenticatedHome() {
 
   const saved = savedRef.current;
   const initialRoom = saved?.room ?? resolveRoom(window.localStorage.getItem("focusroom-room"));
+  const initialDeadline =
+    saved?.deadline ??
+    (saved?.runningSince ? Date.now() + Math.max(0, saved.remainingSeconds) * 1000 : null);
 
   const [tab, setTab] = useState<DashboardTab>("focus");
   const [setupStep, setSetupStep] = useState<SetupStep>("goal");
@@ -125,7 +154,12 @@ export function AuthenticatedHome() {
   const [plannedSeconds, setPlannedSeconds] = useState(saved?.plannedSeconds ?? 25 * 60);
   const [remainingSeconds, setRemainingSeconds] = useState(saved?.remainingSeconds ?? 25 * 60);
   const [startedAt, setStartedAt] = useState<string | null>(saved?.startedAt ?? null);
-  const [runningSince, setRunningSince] = useState<number | null>(saved?.runningSince ?? null);
+  const [deadline, setDeadline] = useState<number | null>(initialDeadline);
+  const [activeCustomRoom, setActiveCustomRoom] = useState<CustomRoomConfig | null>(saved?.customRoom ?? null);
+
+  const [customDraft, setCustomDraft] = useState<CustomRoomConfig>(() => saved?.customRoom ?? readCustomRoom());
+  const [customMediaInput, setCustomMediaInput] = useState(() => (saved?.customRoom ?? readCustomRoom()).sourceUrl);
+  const [customMediaError, setCustomMediaError] = useState<string | null>(null);
 
   const [controlA, setControlA] = useState(saved?.controlA ?? 72);
   const [controlB, setControlB] = useState(saved?.controlB ?? 46);
@@ -148,7 +182,7 @@ export function AuthenticatedHome() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const running = runningSince !== null;
+  const running = deadline !== null;
   const active = startedAt !== null;
   const elapsedSeconds = Math.max(0, plannedSeconds - remainingSeconds);
   const progress = plannedSeconds > 0 ? Math.min(1, elapsedSeconds / plannedSeconds) : 0;
@@ -183,8 +217,8 @@ export function AuthenticatedHome() {
 
   useEffect(() => {
     window.localStorage.setItem("focusroom-room", room);
-    focusAudioEngine.setRoom(room);
-  }, [room]);
+    if (!activeCustomRoom) focusAudioEngine.setRoom(room);
+  }, [room, activeCustomRoom]);
 
   useEffect(() => {
     focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
@@ -200,16 +234,21 @@ export function AuthenticatedHome() {
   }, [muted]);
 
   useEffect(() => {
+    window.localStorage.setItem(CUSTOM_ROOM_KEY, JSON.stringify(customDraft));
+  }, [customDraft]);
+
+  useEffect(() => {
     const snapshot: StoredSession = {
       room,
       intention,
       plannedSeconds,
       remainingSeconds,
       startedAt,
-      runningSince,
+      deadline,
       controlA,
       controlB,
       controlC,
+      customRoom: activeCustomRoom,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
@@ -218,29 +257,31 @@ export function AuthenticatedHome() {
     plannedSeconds,
     remainingSeconds,
     startedAt,
-    runningSince,
+    deadline,
     controlA,
     controlB,
     controlC,
+    activeCustomRoom,
   ]);
 
   useEffect(() => {
-    if (runningSince === null) return;
-    const initialRemaining = remainingSeconds;
+    if (deadline === null) return;
 
-    const interval = window.setInterval(() => {
-      const elapsedSinceRun = Math.floor((Date.now() - runningSince) / 1000);
-      const next = Math.max(0, initialRemaining - elapsedSinceRun);
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setRemainingSeconds(next);
-      if (next === 0) setRunningSince(null);
-    }, 250);
+      if (next <= 0) setDeadline(null);
+    };
 
+    tick();
+    const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [runningSince]);
+  }, [deadline]);
 
   const enableSound = async () => {
     try {
       await focusAudioEngine.enable();
+      focusAudioEngine.setRoom(room);
       focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
       focusAudioEngine.setMasterVolume(masterVolume);
       focusAudioEngine.setMuted(muted);
@@ -259,57 +300,87 @@ export function AuthenticatedHome() {
 
   const beginSession = async (selectedRoom: Room) => {
     setRoom(selectedRoom);
+    setActiveCustomRoom(null);
     setCustomBuilder(false);
     const now = new Date().toISOString();
     setStartedAt(now);
     setRemainingSeconds(plannedSeconds);
-    setRunningSince(Date.now());
+    setDeadline(Date.now() + plannedSeconds * 1000);
     setInFocusView(true);
 
-    if (!soundEnabled) {
-      try {
-        await focusAudioEngine.enable();
-        focusAudioEngine.setRoom(selectedRoom);
-        focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
-        focusAudioEngine.setMasterVolume(masterVolume);
-        focusAudioEngine.setMuted(muted);
-        setSoundEnabled(true);
-      } catch {
-        // Session can continue silently.
-      }
+    try {
+      await focusAudioEngine.enable();
+      focusAudioEngine.setRoom(selectedRoom);
+      focusAudioEngine.setLayerVolumes(controlA, controlB, controlC);
+      focusAudioEngine.setMasterVolume(masterVolume);
+      focusAudioEngine.setMuted(muted);
+      setSoundEnabled(true);
+    } catch {
+      // The focus session can still run silently.
     }
   };
 
-  const pauseOrResume = () => {
-    if (running) {
-      setRunningSince(null);
+  const beginCustomSession = () => {
+    if (!customDraft.embedUrl) {
+      setCustomMediaError("Add a working media link before starting the room.");
       return;
     }
 
-    if (!startedAt) return;
-    setRunningSince(Date.now());
+    const roomConfig = {
+      ...customDraft,
+      name: customDraft.name.trim().slice(0, 28) || "My Room",
+    };
+
+    focusAudioEngine.destroy();
+    setSoundEnabled(false);
+    setActiveCustomRoom(roomConfig);
+    setCustomDraft(roomConfig);
+    setCustomBuilder(false);
+
+    const now = new Date().toISOString();
+    setStartedAt(now);
+    setRemainingSeconds(plannedSeconds);
+    setDeadline(Date.now() + plannedSeconds * 1000);
+    setInFocusView(true);
+  };
+
+  const pauseOrResume = () => {
+    if (deadline !== null) {
+      const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRemainingSeconds(next);
+      setDeadline(null);
+      return;
+    }
+
+    if (!startedAt || remainingSeconds <= 0) return;
+    setDeadline(Date.now() + remainingSeconds * 1000);
   };
 
   const endAndSave = async () => {
     if (!startedAt || saving) return;
 
-    setRunningSince(null);
+    if (deadline !== null) {
+      setRemainingSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    }
+    setDeadline(null);
     setSaving(true);
 
     const endedAt = new Date().toISOString();
-    const elapsed = Math.max(1, plannedSeconds - remainingSeconds);
+    const currentRemaining =
+      deadline !== null ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : remainingSeconds;
+    const elapsed = Math.max(1, plannedSeconds - currentRemaining);
 
     try {
       await apiFetch("/sessions", {
         method: "POST",
         body: JSON.stringify({
           intention,
-          room,
+          room: activeCustomRoom ? `custom:${activeCustomRoom.name}` : room,
           plannedSeconds,
           elapsedSeconds: elapsed,
-          ambienceA: controlA,
-          ambienceB: controlB,
-          ambienceC: controlC,
+          ambienceA: activeCustomRoom ? 0 : controlA,
+          ambienceB: activeCustomRoom ? 0 : controlB,
+          ambienceC: activeCustomRoom ? 0 : controlC,
           startedAt,
           endedAt,
         }),
@@ -317,6 +388,7 @@ export function AuthenticatedHome() {
 
       setStartedAt(null);
       setRemainingSeconds(plannedSeconds);
+      setActiveCustomRoom(null);
       setInFocusView(false);
       setSetupStep("goal");
       window.localStorage.removeItem(STORAGE_KEY);
@@ -328,11 +400,89 @@ export function AuthenticatedHome() {
     }
   };
 
+  const handleCustomMedia = (value: string) => {
+    setCustomMediaInput(value);
+
+    if (!value.trim()) {
+      setCustomMediaError(null);
+      setCustomDraft((current) => ({
+        ...current,
+        sourceUrl: "",
+        embedUrl: "",
+      }));
+      return;
+    }
+
+    const result = parseCustomMedia(value);
+    if ("error" in result) {
+      setCustomMediaError(result.error);
+      return;
+    }
+
+    setCustomMediaError(null);
+    setCustomDraft((current) => ({
+      ...current,
+      provider: result.provider,
+      sourceUrl: result.sourceUrl,
+      embedUrl: result.embedUrl,
+    }));
+  };
+
   const totalHours = (summary.totalSeconds / 3600).toFixed(summary.totalSeconds >= 36000 ? 0 : 1);
   const backgroundRoom = previewRoom && previewRoom !== "custom" ? previewRoom : room;
-  const showCustomBackdrop = customBuilder || previewRoom === "custom";
+  const showCustomBackdrop = customBuilder || previewRoom === "custom" || Boolean(activeCustomRoom);
+  const customTheme = activeCustomRoom?.theme ?? customDraft.theme;
 
   if (inFocusView && active) {
+    if (activeCustomRoom) {
+      return (
+        <main className={`focus-state focus-state--custom custom-shell--${activeCustomRoom.theme}`}>
+          <CustomRoomBackdrop theme={activeCustomRoom.theme} />
+
+          <button className="focus-state__back" type="button" onClick={() => setInFocusView(false)}>
+            ← Back
+          </button>
+
+          <section className="custom-focus">
+            <div className="custom-focus__session">
+              <div className="custom-focus__heading">
+                <span>{activeCustomRoom.name}</span>
+                <p>{intention || "Focus session"}</p>
+              </div>
+
+              <div className="focus-state__timer custom-focus__timer" style={{ "--progress": progress } as React.CSSProperties}>
+                <svg viewBox="0 0 240 240" aria-hidden="true">
+                  <circle cx="120" cy="120" r="106" />
+                  <circle className="is-progress" cx="120" cy="120" r="106" />
+                </svg>
+                <div>
+                  <strong>{formatClock(remainingSeconds)}</strong>
+                  <span>{running ? "FOCUSING" : "PAUSED"}</span>
+                </div>
+              </div>
+
+              <div className="focus-state__actions">
+                <button type="button" onClick={pauseOrResume}>
+                  {running ? "Stop" : "Resume"}
+                </button>
+                <button className="focus-state__end" type="button" onClick={() => void endAndSave()} disabled={saving}>
+                  {saving ? "Saving…" : "End"}
+                </button>
+              </div>
+            </div>
+
+            <div className="custom-focus__media">
+              <div className="custom-focus__media-head">
+                <span>{providerLabel(activeCustomRoom.provider)}</span>
+                <small>media stays under your control</small>
+              </div>
+              <CustomMediaEmbed config={activeCustomRoom} />
+            </div>
+          </section>
+        </main>
+      );
+    }
+
     return (
       <main className={`focus-state landing-alive--${room}`}>
         <AtmosphereLayer
@@ -362,12 +512,7 @@ export function AuthenticatedHome() {
             <button type="button" onClick={pauseOrResume}>
               {running ? "Stop" : "Resume"}
             </button>
-            <button
-              className="focus-state__end"
-              type="button"
-              onClick={() => void endAndSave()}
-              disabled={saving}
-            >
+            <button className="focus-state__end" type="button" onClick={() => void endAndSave()} disabled={saving}>
               {saving ? "Saving…" : "End"}
             </button>
           </div>
@@ -392,8 +537,10 @@ export function AuthenticatedHome() {
   }
 
   return (
-    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${showCustomBackdrop ? "focus-dashboard--custom-preview" : ""}`}>
-      {showCustomBackdrop ? <CustomRoomBackdrop /> : (
+    <main className={`focus-dashboard landing-alive--${backgroundRoom} ${showCustomBackdrop ? `focus-dashboard--custom-preview custom-shell--${customTheme}` : ""}`}>
+      {showCustomBackdrop ? (
+        <CustomRoomBackdrop theme={customTheme} />
+      ) : (
         <AtmosphereLayer
           room={backgroundRoom}
           rainIntensity={backgroundRoom === "rain-city" ? controlA / 100 : 0}
@@ -467,26 +614,105 @@ export function AuthenticatedHome() {
                 <p className="focus-app__eyebrow">CURRENT SESSION</p>
                 <h1>{intention || "Focus session"}</h1>
                 <strong>{formatClock(remainingSeconds)}</strong>
+                <span className="focus-setup__active-space">
+                  {activeCustomRoom ? activeCustomRoom.name : roomNames[room]}
+                </span>
                 <button type="button" onClick={() => setInFocusView(true)}>Return to focus</button>
               </div>
             ) : customBuilder ? (
-              <div className="custom-builder">
+              <div className="custom-builder custom-builder--live">
                 <button className="custom-builder__back" type="button" onClick={() => setCustomBuilder(false)}>
                   ← Choose another room
                 </button>
-                <p>CREATE YOUR OWN ROOM</p>
-                <h1>Your media.<br />Your atmosphere.</h1>
-                <div className="custom-builder__providers">
-                  <span>YouTube</span>
-                  <span>Spotify</span>
-                  <span>Apple Music</span>
+
+                <div className="custom-builder__copy">
+                  <p className="custom-builder__kicker">CUSTOM ROOM</p>
+                  <h1>Build the room<br />around your media.</h1>
+                  <p className="custom-builder__intro">
+                    Paste one link. FocusRoom keeps the player visible and builds a separate visual space around it.
+                  </p>
                 </div>
-                <p className="custom-builder__note">
-                  This room will have its own visual system, media player, timer and goal. It will not inherit a curated FocusRoom ambience.
-                </p>
-                <button className="custom-builder__disabled" type="button" disabled>
-                  Custom room builder · next
-                </button>
+
+                <div className="custom-builder__layout">
+                  <div className="custom-builder__form">
+                    <label className="custom-field">
+                      <span>Room name</span>
+                      <input
+                        type="text"
+                        maxLength={28}
+                        value={customDraft.name}
+                        onChange={(event) => setCustomDraft((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="My night room"
+                      />
+                    </label>
+
+                    <label className="custom-field">
+                      <span>Media link</span>
+                      <textarea
+                        rows={3}
+                        value={customMediaInput}
+                        onChange={(event) => handleCustomMedia(event.target.value)}
+                        placeholder="Paste a YouTube, Spotify or Apple Music link"
+                      />
+                      {customMediaError ? <small className="custom-field__error">{customMediaError}</small> : (
+                        <small>
+                          {customDraft.embedUrl
+                            ? `${providerLabel(customDraft.provider)} ready`
+                            : "Video, playlist, album or track"}
+                        </small>
+                      )}
+                    </label>
+
+                    <div className="custom-theme-picker">
+                      <span>Room color</span>
+                      <div>
+                        {customRoomThemes.map((theme) => (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            className={customDraft.theme === theme.id ? "is-active" : ""}
+                            data-theme={theme.id}
+                            onClick={() => setCustomDraft((current) => ({ ...current, theme: theme.id }))}
+                          >
+                            <i />
+                            <strong>{theme.label}</strong>
+                            <small>{theme.note}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="custom-builder__meta">
+                      <span>Saved automatically on this device</span>
+                      <span>{customDraft.embedUrl ? providerLabel(customDraft.provider) : "No media yet"}</span>
+                    </div>
+
+                    <button
+                      className="custom-builder__start"
+                      type="button"
+                      disabled={!customDraft.embedUrl}
+                      onClick={beginCustomSession}
+                    >
+                      Start in {customDraft.name.trim() || "My Room"} →
+                    </button>
+                  </div>
+
+                  <div className="custom-builder__preview">
+                    <div className="custom-builder__preview-head">
+                      <span>LIVE PREVIEW</span>
+                      <b>{customDraft.name.trim() || "My Room"}</b>
+                    </div>
+                    {customDraft.embedUrl ? (
+                      <CustomMediaEmbed config={customDraft} compact />
+                    ) : (
+                      <div className="custom-media-placeholder">
+                        <FocusMark />
+                        <span>Your media appears here</span>
+                        <small>YouTube · Spotify · Apple Music</small>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <>
@@ -585,7 +811,7 @@ export function AuthenticatedHome() {
                           setCustomBuilder(true);
                         }}
                       >
-                        <span>your media / your visuals / your rules</span>
+                        <span>your media / your colors / your room</span>
                         <strong>Custom Room</strong>
                         <i>Create →</i>
                       </button>
@@ -598,44 +824,55 @@ export function AuthenticatedHome() {
         ) : null}
 
         {tab === "sound" ? (
-          <section className="dashboard-panel dashboard-panel--sound">
-            <p className="focus-app__eyebrow">SOUND</p>
-            <h1>{roomNames[room]}</h1>
+          activeCustomRoom ? (
+            <section className="dashboard-panel dashboard-panel--sound custom-sound-panel">
+              <p className="focus-app__eyebrow">SOUND</p>
+              <h1>{activeCustomRoom.name}</h1>
+              <p>Playback is controlled by the embedded {providerLabel(activeCustomRoom.provider)} player.</p>
+              <div className="custom-sound-panel__player">
+                <CustomMediaEmbed config={activeCustomRoom} compact />
+              </div>
+            </section>
+          ) : (
+            <section className="dashboard-panel dashboard-panel--sound">
+              <p className="focus-app__eyebrow">SOUND</p>
+              <h1>{roomNames[room]}</h1>
 
-            <div className="sound-engine-controls">
-              <button
-                className={`sound-power ${soundEnabled ? "is-on" : ""}`}
-                type="button"
-                onClick={() => void enableSound()}
-              >
-                <i />
-                {soundEnabled ? "Sound on" : "Enable sound"}
-              </button>
-              <button type="button" className="sound-mute" disabled={!soundEnabled} onClick={() => setMuted((value) => !value)}>
-                {muted ? "Unmute" : "Mute"}
-              </button>
-            </div>
+              <div className="sound-engine-controls">
+                <button
+                  className={`sound-power ${soundEnabled ? "is-on" : ""}`}
+                  type="button"
+                  onClick={() => void enableSound()}
+                >
+                  <i />
+                  {soundEnabled ? "Sound on" : "Enable sound"}
+                </button>
+                <button type="button" className="sound-mute" disabled={!soundEnabled} onClick={() => setMuted((value) => !value)}>
+                  {muted ? "Unmute" : "Mute"}
+                </button>
+              </div>
 
-            <label className="dashboard-sound-row">
-              <span>Master</span>
-              <input type="range" min="0" max="100" value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} />
-              <b>{masterVolume}</b>
-            </label>
-
-            {controls.map((control) => (
-              <label className="dashboard-sound-row" key={control.key}>
-                <span>{control.label}<small>audio file</small></span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={control.value}
-                  onChange={(event) => control.setter(Number(event.target.value))}
-                />
-                <b>{control.value}</b>
+              <label className="dashboard-sound-row">
+                <span>Master</span>
+                <input type="range" min="0" max="100" value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} />
+                <b>{masterVolume}</b>
               </label>
-            ))}
-          </section>
+
+              {controls.map((control) => (
+                <label className="dashboard-sound-row" key={control.key}>
+                  <span>{control.label}<small>audio file</small></span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={control.value}
+                    onChange={(event) => control.setter(Number(event.target.value))}
+                  />
+                  <b>{control.value}</b>
+                </label>
+              ))}
+            </section>
+          )
         ) : null}
 
         {tab === "progress" ? (
