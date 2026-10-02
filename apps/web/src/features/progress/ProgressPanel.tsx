@@ -42,6 +42,13 @@ const curatedRoomNames: Record<string, string> = {
   "cozy-cafe": "Cozy Café",
 };
 
+const curatedSoundLabels: Record<string, [string, string, string]> = {
+  "rain-city": ["Rain + thunder", "Traffic", "City life"],
+  "night-train": ["Rails", "Wind", "Lo-fi"],
+  "orbital-lab": ["Cosmos", "Ventilation", "Systems"],
+  "cozy-cafe": ["Crowd", "Coffee bar", "Jazz / vinyl"],
+};
+
 function roomName(value: string) {
   if (value.startsWith("custom:")) return value.slice(7) || "Custom Room";
   return curatedRoomNames[value] ?? value;
@@ -72,13 +79,16 @@ export function ProgressPanel({
   loading,
   error,
   onRetry,
+  onDeleteSession,
 }: {
   data: ProgressResponse | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  onDeleteSession: (id: string) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<ProgressSession | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const maxWeekly = useMemo(
     () => Math.max(1, ...(data?.weekly.map((item) => item.seconds) ?? [1])),
@@ -309,11 +319,38 @@ export function ProgressPanel({
             {!selected.room.startsWith("custom:") ? (
               <div className="progress-detail__mix">
                 <span>LAST MIX</span>
-                <div><i style={{ "--mix": `${selected.ambienceA}%` } as CSSProperties} /><b>A {selected.ambienceA}</b></div>
-                <div><i style={{ "--mix": `${selected.ambienceB}%` } as CSSProperties} /><b>B {selected.ambienceB}</b></div>
-                <div><i style={{ "--mix": `${selected.ambienceC}%` } as CSSProperties} /><b>C {selected.ambienceC}</b></div>
+                {[
+                  [curatedSoundLabels[selected.room]?.[0] ?? "Layer A", selected.ambienceA],
+                  [curatedSoundLabels[selected.room]?.[1] ?? "Layer B", selected.ambienceB],
+                  [curatedSoundLabels[selected.room]?.[2] ?? "Layer C", selected.ambienceC],
+                ].map(([label, value]) => (
+                  <div key={String(label)}>
+                    <i style={{ "--mix": `${value}%` } as CSSProperties} />
+                    <b>{label} · {value}</b>
+                  </div>
+                ))}
               </div>
             ) : null}
+
+            <div className="progress-detail__danger">
+              <span>Wrong or accidental session?</span>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!window.confirm("Delete this focus session from your progress history?")) return;
+                  setDeleting(true);
+                  try {
+                    await onDeleteSession(selected.id);
+                    setSelected(null);
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete session"}
+              </button>
+            </div>
           </article>
         </div>
       ) : null}
