@@ -1992,3 +1992,16 @@
     justify-self: stretch;
   }
 }
+
+
+.custom-shell--paper .focus-dashboard__tabs button:hover,
+.custom-shell--paper .focus-dashboard__tabs button.is-active,
+.custom-shell--paper .focus-dashboard__account button:hover,
+.custom-shell--paper .custom-builder__back,
+.custom-shell--paper .focus-state__back {
+  color: #171713;
+}
+
+.custom-shell--paper .custom-builder__back:hover {
+  color: #000;
+}
