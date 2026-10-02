@@ -2005,3 +2005,18 @@
 .custom-shell--paper .custom-builder__back:hover {
   color: #000;
 }
+
+
+.custom-media--spotify-api {
+  height: 352px;
+}
+
+.custom-media--spotify-api iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+}
+
+.custom-media--spotify-api.is-compact {
+  height: 352px;
+}
